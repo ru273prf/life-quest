@@ -1,21 +1,19 @@
 # LIFE QUEST
 
-レトロRPG風の生活・勉強管理アプリの初期フロントエンド版です。
+レトロRPG風の生活・勉強管理アプリ。
 
-## 現在
+## V2 prototype
 - HOME / QUEST / STATUS / SHOP / MORE
-- EXP / LEVEL / HP / STREAK の基本ロジック
+- GOOD HABITのCLEAR
+- 生活習慣系のFAILによるHP減少
+- FAIL時のEXPペナルティをHPと独立して処理
+- HP倍率 / STREAK倍率
 - 属性EXP
+- レベルアップ
 - 実績
 - EXPショップ
 - 直近48時間の行動ログ
-- ブラウザのlocalStorage保存
+- localStorage保存
 
-## 次の実装候補
-1. クエスト編集UI
-2. HP減少処理の厳密化
-3. レベルアップ演出
-4. ピクセル勇者画像
-5. Supabase Auth / DB
-6. 48時間を超えたログのDB自動削除
-7. GitHub Pages公開
+## 次
+Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログのサーバー側自動削除など。
