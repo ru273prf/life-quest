@@ -51,3 +51,8 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - HOME is restored automatically if an invalid screen state occurs
 - Render errors fall back to HOME instead of leaving the screen unusable
 - Navigation resets the quest tab and scrolls to the top
+
+## V8 fix
+- V7のHOME空白画面の原因だった `streakMultiplier()` 未定義を修正
+- STREAK倍率を 0-49日×1 / 50日×2 / 100日×4 / 150日×6 / 200日×8 / 250日以上×10 に固定
+- 画面描画エラー時のフォールバックも強化

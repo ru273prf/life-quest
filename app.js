@@ -67,6 +67,14 @@ function formatDate(){
 function levelThreshold(level){
   let total=0;for(let i=1;i<level;i++)total+=100+(i-1)*50;return total
 }
+function streakMultiplier(streak){
+  if(streak >= 250) return 10;
+  if(streak >= 200) return 8;
+  if(streak >= 150) return 6;
+  if(streak >= 100) return 4;
+  if(streak >= 50) return 2;
+  return 1;
+}
 function expMultiplier(){
   const hp=state.hp>=100?1:state.hp>=50?.5:.25;
   const streak=Math.min(10,1+Math.floor(state.streak/50)*2);
@@ -169,7 +177,12 @@ function render(){
   }catch(error){
     console.error(error);
     currentScreen="home";
-    document.getElementById("screen").innerHTML=renderHome();
+    try{
+      document.getElementById("screen").innerHTML=renderHome();
+    }catch(fatal){
+      console.error(fatal);
+      document.getElementById("screen").innerHTML='<section class="panel"><div class="panel-title">LIFE QUEST</div><div class="notice">画面の読み込みでエラーが発生しました。ページを再読み込みしてください。</div></section>';
+    }
   }
   bindEvents();saveState()
 }
