@@ -77,7 +77,15 @@ function syncTotalExp(){
   state.totalExp=getTotalExp();
 }
 
+function normalizeAttributes(){
+  Object.keys(state.attributes || {}).forEach(k=>{
+    state.attributes[k]=Math.max(0, Number(state.attributes[k])||0);
+  });
+  state.totalExp=Object.values(state.attributes).reduce((a,b)=>a+b,0);
+}
+
 function normalizeState(){
+  normalizeAttributes();
   state.attributes.english=Number(state.attributes.english)||0;
   state.attributes.academic=Number(state.attributes.academic)||0;
   state.attributes.human=Number(state.attributes.human)||0;
