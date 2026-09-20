@@ -24,3 +24,10 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - ページを開いただけではSTREAKが進まない
 - デイリークエストの最後の操作でのみSTREAK判定
 - HP / LEVEL / STREAKの値をロード時に正規化
+
+
+## V4 fixes
+- GitHub Pages cache-busting added to index.html
+- TOTAL EXP update made explicit and normalized
+- RESET DATA no longer depends on browser confirm()
+- OPTIONS now shows current saved TOTAL EXP / HP / LEVEL

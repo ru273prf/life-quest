@@ -74,12 +74,24 @@ function expMultiplier(){
 }
 function addExp(raw,attr=null){
   const m=expMultiplier();
-  const final=Math.round(raw*m.total);
-  state.totalExp=Math.max(0,state.totalExp+final);
-  if(attr&&state.attributes[attr]!==undefined)state.attributes[attr]=Math.max(0,state.attributes[attr]+final);
+  const final=Math.round(Number(raw||0)*m.total);
+
+  // まずTOTAL EXPを確実に更新
+  const beforeTotal = Number(state.totalExp)||0;
+  state.totalExp = Math.max(0, beforeTotal + final);
+
+  // 属性EXPにも同じ最終EXPを加算
+  if(attr && state.attributes[attr] !== undefined){
+    state.attributes[attr] = Math.max(0, (Number(state.attributes[attr])||0) + final);
+  }
+
+  // TOTALが属性合計を下回ることはないようにする
+  const attrTotal = Object.values(state.attributes).reduce((sum,v)=>sum+(Number(v)||0),0);
+  if(state.totalExp < attrTotal) state.totalExp = attrTotal;
+
   const oldLevel=state.level;
-  while(state.totalExp>=levelThreshold(state.level+1))state.level++;
-  return {final,oldLevel,newLevel:state.level,m};
+  while(state.totalExp>=levelThreshold(state.level+1)) state.level++;
+  return {final,oldLevel,newLevel:state.level,m,beforeTotal,afterTotal:state.totalExp};
 }
 function logAction(name,exp){
   state.logs.push({at:Date.now(),name,exp});
@@ -160,7 +172,7 @@ function renderHome(){
   </section>
   <section class="panel"><div class="panel-title">TODAY'S STATUS</div>
     <div class="notice">HP ${state.hp>=100?"GOOD":state.hp>=50?"CAUTION":"DANGER"} ／ EXP倍率 <span class="multiplier">×${m.hp}</span> ／ STREAK倍率 <span class="multiplier">×${m.streak}</span> ／ TOTAL <span class="multiplier">×${m.total}</span></div>
-    <div class="notice" style="margin-top:6px">属性EXP合計 ${Object.values(state.attributes).reduce((a,b)=>a+b,0).toLocaleString()} ／ TOTAL EXP ${state.totalExp.toLocaleString()}</div>
+    <div class="notice" style="margin-top:6px">ATTRIBUTE TOTAL ${Object.values(state.attributes).reduce((a,b)=>a+(Number(b)||0),0).toLocaleString()} ／ TOTAL EXP ${state.totalExp.toLocaleString()}</div>
   </section>
   ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="notice">${lastResult.q.name}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}
   <section class="panel"><div class="panel-title">COMMAND</div><div class="command-list">
@@ -233,12 +245,17 @@ function renderOptions(){
   <div class="setting"><span>HP設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>属性設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>ショップ設定</span><button disabled>次期実装</button></div>
-  <div class="setting"><span>データ管理</span><button data-reset>リセット</button></div>
-  </div></section><section class="panel"><div class="notice">OPTIONSは通常のゲーム画面と分離する管理エリア。編集機能は仕様確定後に追加する。</div></section>`;
+  <div class="setting"><span>データ管理</span><button data-reset>RESET DATA</button></div>
+  </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level}</div></section>
+  <section class="panel"><div class="notice">OPTIONSは通常のゲーム画面と分離する管理エリア。編集機能は仕様確定後に追加する。</div></section>`;
   document.querySelector("[data-reset]")?.addEventListener("click",()=>{
-    if(confirm("現在のローカルデータを初期化します。よろしい？")){
-      localStorage.removeItem(STORAGE_KEY);state=clone(defaultState);lastResult=null;render();toast("データを初期化しました")
-    }
+    localStorage.removeItem(STORAGE_KEY);
+    state=clone(defaultState);
+    lastResult=null;
+    currentQuestTab="daily";
+    saveState();
+    render();
+    setTimeout(()=>toast("DATA RESET — Lv.1 / EXP 0 / HP 100"),50);
   })
 }
 
