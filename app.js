@@ -93,9 +93,6 @@ function addExp(raw,attr=null){
     state.attributes[attr] = Math.max(0, (Number(state.attributes[attr])||0) + final);
   }
 
-  // TOTALが属性合計を下回ることはないようにする
-  const attrTotal = Object.values(state.attributes).reduce((sum,v)=>sum+(Number(v)||0),0);
-  if(state.totalExp < attrTotal) state.totalExp = attrTotal;
 
   const oldLevel=state.level;
   while(state.totalExp>=levelThreshold(state.level+1)) state.level++;
@@ -125,8 +122,8 @@ function performQuest(q, outcome){
     state.dailyDone[key]="clear";
     lastResult={type:"clear",q,result};
   }else{
-    if(q.hpFail)state.hp=Math.max(0,state.hp-q.hpFail);
-    if(q.penaltyExp)state.totalExp=Math.max(0,state.totalExp+q.penaltyExp);
+    if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
+    if(q.penaltyExp) state.totalExp=Math.max(0,state.totalExp+q.penaltyExp);
     logAction(`${q.name} FAIL`,q.penaltyExp||0);
     state.dailyDone[key]="fail";
     lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()}};
