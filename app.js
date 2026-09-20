@@ -163,7 +163,14 @@ function render(){
   document.getElementById("headerStreak").textContent=state.streak;
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===currentScreen));
   const map={home:renderHome,quest:renderQuest,status:renderStatus,shop:renderShop,more:renderMore};
-  document.getElementById("screen").innerHTML=map[currentScreen]();
+  if(!map[currentScreen]) currentScreen="home";
+  try{
+    document.getElementById("screen").innerHTML=map[currentScreen]();
+  }catch(error){
+    console.error(error);
+    currentScreen="home";
+    document.getElementById("screen").innerHTML=renderHome();
+  }
   bindEvents();saveState()
 }
 
@@ -359,6 +366,19 @@ function bindEvents(){
   }));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));
 }
-document.querySelectorAll(".nav-btn").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.screen;lastResult=null;render()}));
+document.addEventListener("click",(event)=>{
+  const nav = event.target.closest(".nav-btn");
+  if(nav){
+    event.preventDefault();
+    currentScreen = nav.dataset.screen || "home";
+    currentQuestTab = "daily";
+    lastResult = null;
+    render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+});
+window.addEventListener("error",(event)=>{
+  console.error(event.error || event.message);
+});
 function toast(message){const e=document.getElementById("toast");e.textContent=message;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("show"),1400)}
 render();
