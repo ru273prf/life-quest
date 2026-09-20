@@ -27,6 +27,7 @@ const shops = [
 ];
 
 let state = loadState();
+normalizeState();
 let currentScreen = "home";
 let currentQuestTab = "daily";
 let lastResult = null;
@@ -39,6 +40,21 @@ function loadState(){
     return {...clone(defaultState),...saved,attributes:{...defaultState.attributes,...saved.attributes},stats:{...defaultState.stats,...saved.stats}};
   }catch{return clone(defaultState)}
 }
+function normalizeState(){
+  // V2で古い状態が残っていても、TOTAL EXPと属性EXPの矛盾を自動修正する。
+  const attrTotal = Object.values(state.attributes).reduce((sum, value) => sum + Math.max(0, Number(value)||0), 0);
+  state.totalExp = Math.max(0, Number(state.totalExp)||0);
+  if(state.totalExp < attrTotal) state.totalExp = attrTotal;
+
+  state.hp = Math.max(0, Math.min(100, Number(state.hp)||0));
+  state.level = Math.max(1, Number(state.level)||1);
+  state.streak = Math.max(0, Number(state.streak)||0);
+
+  // 「今日の全デイリー達成」を、ページを開いただけでは発生させない。
+  // STREAK更新は、ユーザーが最後のクエストを実際に操作した直後だけ行う。
+  state.lastDailyDate = state.lastDailyDate || null;
+}
+
 function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 function today(){return new Date().toISOString().slice(0,10)}
 function yesterday(){
@@ -94,23 +110,32 @@ function performQuest(q, outcome){
     state.dailyDone[key]="fail";
     lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()}};
   }
+  const streakChanged = updateStreak();
   saveState();
   toast(outcome==="clear"?(result.final?`+${result.final} EXP`:"CLEAR!"):q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
+  if(streakChanged) setTimeout(()=>toast(`🔥 STREAK ${state.streak} DAYS!`), 650);
   render();
 }
 
 function updateStreak(){
-  const current=today(), prev=yesterday();
-  const all=quests.every(q=>state.dailyDone[`${current}_${q.id}`]);
-  if(!all||state.lastDailyDate===current)return;
-  const yesterdayComplete=quests.every(q=>state.dailyDone[`${prev}_${q.id}`]==="clear");
-  state.streak=yesterdayComplete?state.streak+1:1;
-  state.lastDailyDate=current;
-  saveState()
+  const current = today();
+  if(state.lastDailyDate === current) return false;
+
+  const allCompleted = quests.every(q => state.dailyDone[`${current}_${q.id}`]);
+  if(!allCompleted) return false;
+
+  const prev = yesterday();
+  const prevCompleted = quests.every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
+
+  state.streak = prevCompleted ? state.streak + 1 : 1;
+  state.lastDailyDate = current;
+  saveState();
+  return true;
 }
 
 function render(){
-  cleanupLogs();updateStreak();
+  cleanupLogs();
+  normalizeState();
   document.getElementById("currentDate").textContent=formatDate();
   document.getElementById("headerStreak").textContent=state.streak;
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===currentScreen));
@@ -135,6 +160,7 @@ function renderHome(){
   </section>
   <section class="panel"><div class="panel-title">TODAY'S STATUS</div>
     <div class="notice">HP ${state.hp>=100?"GOOD":state.hp>=50?"CAUTION":"DANGER"} ／ EXP倍率 <span class="multiplier">×${m.hp}</span> ／ STREAK倍率 <span class="multiplier">×${m.streak}</span> ／ TOTAL <span class="multiplier">×${m.total}</span></div>
+    <div class="notice" style="margin-top:6px">属性EXP合計 ${Object.values(state.attributes).reduce((a,b)=>a+b,0).toLocaleString()} ／ TOTAL EXP ${state.totalExp.toLocaleString()}</div>
   </section>
   ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="notice">${lastResult.q.name}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}
   <section class="panel"><div class="panel-title">COMMAND</div><div class="command-list">
