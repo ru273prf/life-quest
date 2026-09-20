@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIFE QUEST</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="game-title">LIFE QUEST</div>
+        <div class="subtitle">今日の行動が、未来の自分をつくる。</div>
+      </div>
+      <div class="date-box">
+        <div id="currentDate"></div>
+        <div>🔥 STREAK <span id="headerStreak">0</span></div>
+      </div>
+    </header>
+
+    <main id="screen" class="screen"></main>
+
+    <nav class="bottom-nav" aria-label="メインメニュー">
+      <button class="nav-btn active" data-screen="home">⌂<span>HOME</span></button>
+      <button class="nav-btn" data-screen="quest">⚔<span>QUEST</span></button>
+      <button class="nav-btn" data-screen="status">≡<span>STATUS</span></button>
+      <button class="nav-btn" data-screen="shop">▣<span>SHOP</span></button>
+      <button class="nav-btn" data-screen="more">•••<span>MORE</span></button>
+    </nav>
+  </div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
