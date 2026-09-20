@@ -73,3 +73,14 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes levelPop{from{transform:scale(.65);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes rewardFloat{0%{transform:translate(-50%,20px) scale(.7);opacity:0}20%{opacity:1}100%{transform:translate(-50%,-100px) scale(1.15);opacity:0}}
+
+.streak-card{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center}
+.streak-fire{font-size:38px}.streak-number{font-size:25px;color:var(--gold)}
+.streak-next{font-size:11px;color:var(--muted);margin-top:4px}
+.mini-progress{height:9px;border:1px solid #657a82;background:#050b10;margin-top:7px;padding:1px}
+.mini-progress>div{height:100%;background:var(--gold)}
+.attr-level{color:var(--gold);font-size:10px;margin-top:3px}
+.hero-stage{font-size:11px;color:var(--muted);margin-top:3px}
+.reward-list{display:grid;gap:6px;margin-top:10px}
+.reward-row{display:flex;justify-content:space-between;border-top:1px solid #3c555e;padding-top:7px;font-size:11px}
+@media(max-width:560px){.streak-card{grid-template-columns:auto 1fr}}

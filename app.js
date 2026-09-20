@@ -167,12 +167,29 @@ function render(){
   bindEvents();saveState()
 }
 
+function attrLevel(exp){return Math.max(1,Math.floor(Math.max(0,exp)/100)+1)}
+function nextStreakMilestone(streak){
+  return [50,100,150,200,250].find(x=>streak<x) || 250;
+}
+function streakRewardText(streak){
+  if(streak>=250)return "MAX ×10";
+  const next=nextStreakMilestone(streak);
+  return `次の倍率 ×${streakMultiplier(next)} まで ${next-streak} DAYS`;
+}
+
 function heroSprite(){
   if(state.level>=20) return "🛡️";
   if(state.level>=10) return "⚔️";
   if(state.level>=5) return "🧝";
   if(state.level>=3) return "🧙";
   return "🧑‍🌾";
+}
+function heroStage(){
+  if(state.level>=20) return "LEGENDARY HERO";
+  if(state.level>=10) return "KNIGHT";
+  if(state.level>=5) return "ADVENTURER";
+  if(state.level>=3) return "APPRENTICE";
+  return "NOVICE";
 }
 function showReward(text){
   const el=document.createElement("div");
@@ -203,7 +220,7 @@ function renderHome(){
   <section class="panel hero-panel">
     <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
     <div>
-      <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div>
+      <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${state.totalExp.toLocaleString()} / ${next.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${pct}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / 100</span></div><div class="bar"><div class="fill hp-fill" style="width:${state.hp}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
@@ -212,6 +229,24 @@ function renderHome(){
   <section class="panel"><div class="panel-title">TODAY'S STATUS</div>
     <div class="notice">HP ${state.hp>=100?"GOOD":state.hp>=50?"CAUTION":"DANGER"} ／ EXP倍率 <span class="multiplier">×${m.hp}</span> ／ STREAK倍率 <span class="multiplier">×${m.streak}</span> ／ TOTAL <span class="multiplier">×${m.total}</span></div>
     <div class="notice" style="margin-top:6px">ATTRIBUTE TOTAL ${Object.values(state.attributes).reduce((a,b)=>a+(Number(b)||0),0).toLocaleString()} ／ TOTAL EXP ${state.totalExp.toLocaleString()}</div>
+  </section>
+  <section class="panel"><div class="panel-title">🔥 STREAK REWARD</div>
+    <div class="streak-card">
+      <div class="streak-fire">🔥</div>
+      <div>
+        <div class="streak-number">${state.streak} DAY STREAK</div>
+        <div class="streak-next">${streakRewardText(state.streak)}</div>
+        <div class="mini-progress"><div style="width:${state.streak>=250?100:(state.streak%50)/50*100}%"></div></div>
+      </div>
+      <div class="multiplier">×${streakMultiplier(state.streak)}</div>
+    </div>
+    <div class="reward-list">
+      <div class="reward-row"><span>50 DAYS</span><span>×2 EXP</span></div>
+      <div class="reward-row"><span>100 DAYS</span><span>×4 EXP</span></div>
+      <div class="reward-row"><span>150 DAYS</span><span>×6 EXP</span></div>
+      <div class="reward-row"><span>200 DAYS</span><span>×8 EXP</span></div>
+      <div class="reward-row"><span>250 DAYS</span><span>×10 EXP MAX</span></div>
+    </div>
   </section>
   ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="notice">${lastResult.q.name}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}
   <section class="panel"><div class="panel-title">COMMAND</div><div class="command-list">
@@ -266,7 +301,7 @@ function renderStatus(){
   const attrs=[["english","📖","英語力","var(--blue)"],["university","🎓","大学","var(--green)"],["knowledge","💡","知識","var(--gold)"],["body","💪","身体","var(--red)"],["creative","🎨","創造","var(--purple)"]];
   const max=Math.max(1000,...Object.values(state.attributes));
   return `<section class="panel"><div class="panel-title">STATUS</div><div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div><div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div></section>
-  <section class="panel"><div class="panel-title">属性EXP</div><div class="attr-grid">${attrs.map(([k,i,n,c])=>`<div class="attr-card"><div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()}</span></div><div class="attr-bar"><div class="attr-fill" style="width:${Math.min(100,state.attributes[k]/max*100)}%;background:${c}"></div></div></div>`).join("")}</div></section>`
+  <section class="panel"><div class="panel-title">属性EXP</div><div class="attr-grid">${attrs.map(([k,i,n,c])=>`<div class="attr-card"><div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div><div class="attr-level">ATTRIBUTE Lv.${attrLevel(state.attributes[k])}</div><div class="attr-bar"><div class="attr-fill" style="width:${(state.attributes[k]%100)}%;background:${c}"></div></div></div>`).join("")}</div></section>`
 }
 
 function renderShop(){
