@@ -3,7 +3,7 @@ const STORAGE_KEY = "lifeQuest_v2";
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
   attributes: {english:0, academic:0, human:0},
-  dailyDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}
+  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}
 };
 
 const quests = [
@@ -13,6 +13,11 @@ const quests = [
   {id:"sleep",name:"23:59までに寝る",icon:"🛏️",exp:5,attr:"human",type:"good",hpFail:10},
   {id:"nogame",name:"ゲームをしない",icon:"🎮",exp:0,attr:"human",type:"avoid",hpFail:15,penaltyExp:-100},
   {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:"human",type:"avoid",hpFail:5,penaltyExp:-5}
+];
+
+const normalQuests = [
+  {id:"english1",name:"えいご①",icon:"📖",exp:100,attr:"english"},
+  {id:"human1",name:"にんげんりょく①",icon:"⚔️",exp:200,attr:"human"}
 ];
 
 const longQuests = [
@@ -177,6 +182,22 @@ function cleanupLogs(){
 }
 function keyFor(q){return `${today()}_${q.id}`}
 function statusFor(q){return state.dailyDone[keyFor(q)]||null}
+
+function performNormalQuest(q){
+  if(state.normalDone[q.id]) return;
+
+  const result=addExp(q.exp,q.attr);
+  state.normalDone[q.id]=true;
+  logAction(`${q.name} CLEAR`,result.final);
+  lastResult={type:"clear",q,result};
+  saveState();
+
+  showReward(`+${result.final} EXP`);
+  if(result.newLevel>result.oldLevel){
+    setTimeout(()=>showLevelUp(result.newLevel),350);
+  }
+  render();
+}
 
 function performQuest(q, outcome){
   const key=keyFor(q);
@@ -365,7 +386,23 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
   if(currentQuestTab==="normal"){
-    html+=`<div class="notice">通常クエストは次のアップデートで追加。今は毎日の固定行動を遊べる形にしている。</div>`;
+    html+=`<div class="notice">通常クエストは1回クリア型。デイリーSTREAKには影響しない。</div>`;
+    for(const q of normalQuests){
+      const done=!!state.normalDone[q.id];
+      html+=`<div class="quest-item good-quest ${done?"done":""}">
+        <div class="quest-icon">${q.icon}</div>
+        <div>
+          <div class="quest-kind">NORMAL QUEST</div>
+          <div class="quest-name">${q.name}</div>
+          <div class="quest-meta">CLEAR: +${q.exp} EXP ／ 属性: ${q.attr==="english"?"英語力":"人間力"}</div>
+        </div>
+        <div class="quest-actions">
+          ${done
+            ? `<button class="clear-btn" disabled>CLEAR</button>`
+            : `<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button>`}
+        </div>
+      </div>`;
+    }
   }else if(currentQuestTab==="long"){
     for(const q of longQuests){
       const value=state.stats[q.key]||0;

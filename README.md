@@ -85,3 +85,9 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - "NEXT LEVELまで ○ EXP" is shown under the EXP bar.
 - Gaining or losing EXP automatically recalculates the level.
 - Level-up continues to trigger the existing RPG-style overlay.
+
+## V13 — 通常クエスト追加
+- 「えいご①」：CLEARで英語力 +100 EXP
+- 「にんげんりょく①」：CLEARで人間力 +200 EXP
+- 通常クエストは1回クリア型で、デイリーSTREAKの全達成条件には含まれない
+- 既存のLvシステムと連動するため、現在TOTALが9なら「えいご①」で109 EXPになってLv.2、「にんげんりょく①」までCLEARすると309 EXPになってLv.3になる
