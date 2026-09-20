@@ -91,3 +91,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   margin-top:4px;
   letter-spacing:.04em;
 }
+
+.quest-actions .clear-btn:not(:disabled){
+  cursor:pointer;
+  pointer-events:auto;
+}

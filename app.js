@@ -505,6 +505,7 @@ function bindEvents(){
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.go;lastResult=null;render()}));
   document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{currentQuestTab=b.dataset.tab;render()}));
   document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=quests.find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
+  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=normalQuests.find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q)}));
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=quests.find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-buy]").forEach(b=>b.addEventListener("click",()=>{
     const i=shops.find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
