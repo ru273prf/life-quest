@@ -109,7 +109,30 @@ function formatDate(){
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`
 }
 function levelThreshold(level){
-  let total=0;for(let i=1;i<level;i++)total+=100+(i-1)*50;return total
+  // Total EXP required to reach the given level.
+  // Lv.1 = 0, Lv.2 = 100, Lv.3 = 250, Lv.4 = 450, ...
+  level=Math.max(1,Math.floor(Number(level)||1));
+  let total=0;
+  for(let i=1;i<level;i++) total += 100 + (i-1)*50;
+  return total;
+}
+function levelProgress(){
+  const currentStart=levelThreshold(state.level);
+  const nextStart=levelThreshold(state.level+1);
+  const need=nextStart-currentStart;
+  const current=Math.max(0,state.totalExp-currentStart);
+  return {
+    current,
+    need,
+    pct:Math.max(0,Math.min(100,current/Math.max(1,need)*100)),
+    remaining:Math.max(0,nextStart-state.totalExp)
+  };
+}
+function recalcLevel(){
+  const oldLevel=state.level;
+  while(state.totalExp>=levelThreshold(state.level+1)) state.level++;
+  while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+  return {oldLevel,newLevel:state.level};
 }
 function streakMultiplier(streak){
   if(streak >= 250) return 10;
@@ -136,8 +159,7 @@ function addExp(raw,attr=null){
   syncTotalExp();
 
   const oldLevel=state.level;
-  while(state.totalExp>=levelThreshold(state.level+1)) state.level++;
-  while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+  recalcLevel();
 
   return {
     final,oldLevel,newLevel:state.level,m,
@@ -173,9 +195,9 @@ function performQuest(q, outcome){
     if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
 
     if(q.penaltyExp && q.attr){
-      state.attributes[q.attr]=(Number(state.attributes[q.attr])||0)+q.penaltyExp;
+      state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
       syncTotalExp();
-      while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+      recalcLevel();
     }
 
     logAction(`${q.name} FAIL`,q.penaltyExp||0);
@@ -293,15 +315,15 @@ function showLevelUp(level){
 }
 
 function renderHome(){
-  const next=levelThreshold(state.level+1),prev=levelThreshold(state.level);
-  const pct=Math.max(0,Math.min(100,((state.totalExp-prev)/Math.max(1,next-prev))*100));
+  const progress=levelProgress();
+  const next=levelThreshold(state.level+1);
   const m=expMultiplier();
   return `
   <section class="panel hero-panel">
     <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
     <div>
       <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
-      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${state.totalExp.toLocaleString()} / ${next.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${pct}%"></div></div></div>
+      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVELまで ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / 100</span></div><div class="bar"><div class="fill hp-fill" style="width:${state.hp}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
     </div>
@@ -457,7 +479,7 @@ function bindEvents(){
       if(remain<=0)break;
     }
     syncTotalExp();
-    while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+    recalcLevel();
     state.purchased.push({id:i.id,at:Date.now()});
     saveState();toast(`${i.name} を購入`);render()
   }));

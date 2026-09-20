@@ -77,3 +77,11 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - マイナスのペナルティは属性EXPが0になるところで止まる
 - TOTAL EXPは3属性の合計から自動計算
 - 既に保存されているマイナス値も読み込み時に0へ補正
+
+## V12 — Level System
+- TOTAL EXP is the sum of English / Academic / Human EXP.
+- Level thresholds are progressive: Lv.2=100, Lv.3=250, Lv.4=450, ...
+- Home shows EXP progress within the current level, not the absolute total.
+- "NEXT LEVELまで ○ EXP" is shown under the EXP bar.
+- Gaining or losing EXP automatically recalculates the level.
+- Level-up continues to trigger the existing RPG-style overlay.
