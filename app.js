@@ -11,8 +11,8 @@ const quests = [
   {id:"university",name:"大学の課題を進める",icon:"🎓",exp:1,attr:"university",type:"good"},
   {id:"train",name:"電車で勉強する",icon:"🚃",exp:3,attr:"knowledge",type:"good"},
   {id:"sleep",name:"23:59までに寝る",icon:"🛏️",exp:5,attr:"body",type:"good",hpFail:10},
-  {id:"nogame",name:"ゲームをしない",icon:"🎮",exp:0,attr:null,type:"habit",hpFail:15,penaltyExp:-100},
-  {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:null,type:"habit",hpFail:5,penaltyExp:-5}
+  {id:"nogame",name:"ゲームをしない",icon:"🎮",exp:0,attr:null,type:"avoid",hpFail:15,penaltyExp:-100},
+  {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:null,type:"avoid",hpFail:5,penaltyExp:-5}
 ];
 
 const longQuests = [
@@ -109,8 +109,9 @@ function performQuest(q, outcome){
   if(state.dailyDone[key])return;
 
   let result={final:0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()};
+
   if(outcome==="clear"){
-    if(q.exp>0)result=addExp(q.exp,q.attr);
+    if(q.exp>0) result=addExp(q.exp,q.attr);
     if(q.id==="toefl")state.stats.toeflPages++;
     logAction(`${q.name} CLEAR`,result.final);
     state.dailyDone[key]="clear";
@@ -122,10 +123,20 @@ function performQuest(q, outcome){
     state.dailyDone[key]="fail";
     lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()}};
   }
+
   const streakChanged = updateStreak();
   saveState();
-  toast(outcome==="clear"?(result.final?`+${result.final} EXP`:"CLEAR!"):q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
-  if(streakChanged) setTimeout(()=>toast(`🔥 STREAK ${state.streak} DAYS!`), 650);
+
+  if(outcome==="clear"){
+    showReward(result.final?`+${result.final} EXP`:"QUEST CLEAR!");
+    if(result.newLevel>result.oldLevel){
+      setTimeout(()=>showLevelUp(result.newLevel),350);
+    }
+  }else{
+    showReward(q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
+  }
+  if(streakChanged) setTimeout(()=>toast(`🔥 STREAK ${state.streak} DAYS!`),700);
+
   render();
 }
 
@@ -156,13 +167,41 @@ function render(){
   bindEvents();saveState()
 }
 
+function heroSprite(){
+  if(state.level>=20) return "🛡️";
+  if(state.level>=10) return "⚔️";
+  if(state.level>=5) return "🧝";
+  if(state.level>=3) return "🧙";
+  return "🧑‍🌾";
+}
+function showReward(text){
+  const el=document.createElement("div");
+  el.className="reward-flash";
+  el.textContent=text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1050);
+}
+function showLevelUp(level){
+  const overlay=document.createElement("div");
+  overlay.className="levelup-overlay";
+  overlay.innerHTML=`<div class="levelup-card">
+    <div class="levelup-title">LEVEL UP!</div>
+    <div class="levelup-hero">${heroSprite()}</div>
+    <div class="levelup-level">Lv.${level}</div>
+    <div class="notice">勇者は一歩強くなった。</div>
+    <button class="clear-btn" style="margin-top:16px" data-close-level>CONTINUE</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("[data-close-level]").addEventListener("click",()=>overlay.remove());
+}
+
 function renderHome(){
   const next=levelThreshold(state.level+1),prev=levelThreshold(state.level);
   const pct=Math.max(0,Math.min(100,((state.totalExp-prev)/Math.max(1,next-prev))*100));
   const m=expMultiplier();
   return `
   <section class="panel hero-panel">
-    <div class="hero-art"><div class="hero-sprite">🧙‍♂️</div></div>
+    <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
     <div>
       <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${state.totalExp.toLocaleString()} / ${next.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${pct}%"></div></div></div>
@@ -200,23 +239,33 @@ function renderQuest(){
     for(const q of quests){
       const s=statusFor(q),done=!!s;
       const reward=q.exp>0?`+${q.exp} EXP`:`成功報酬なし`;
-      html+=`<div class="quest-item ${s==="clear"?"done":""} ${s==="fail"?"failed":""}">
+      const isAvoid=q.type==="avoid";
+      const title=isAvoid?`今日${q.name.replace("しない","をしなかった")}`:q.name;
+      html+=`<div class="quest-item ${isAvoid?"avoid-quest":"good-quest"} ${s==="clear"?"done":""} ${s==="fail"?"failed":""}">
         <div class="quest-icon">${q.icon}</div>
-        <div><div class="quest-name">${q.name}</div><div class="quest-meta">${reward}${q.hpFail?` ／ FAIL: HP -${q.hpFail}`:""}${q.penaltyExp?` ／ FAIL: ${q.penaltyExp} EXP`:""}</div></div>
+        <div>
+          <div class="quest-kind">${isAvoid?"HABIT CHECK":"DAILY QUEST"}</div>
+          <div class="quest-name">${title}</div>
+          <div class="quest-meta">${reward}${q.hpFail?` ／ FAIL: HP -${q.hpFail}`:""}${q.penaltyExp?` ／ FAIL: ${q.penaltyExp} EXP`:""}</div>
+        </div>
         <div class="quest-actions">
-          ${done?`<button class="clear-btn" disabled>${s==="clear"?"CLEAR":"FAILED"}</button>`:`<button class="clear-btn" data-clear="${q.id}">CLEAR</button><button class="fail-btn" data-fail="${q.id}">FAIL</button>`}
+          ${done
+            ? `<button class="clear-btn" disabled>${s==="clear"?"CLEAR":"FAILED"}</button>`
+            : isAvoid
+              ? `<button class="clear-btn success-btn" data-clear="${q.id}">守った</button><button class="fail-btn" data-fail="${q.id}">やった</button>`
+              : `<button class="clear-btn" data-clear="${q.id}">CLEAR</button><button class="fail-btn" data-fail="${q.id}">FAIL</button>`}
         </div>
       </div>`
     }
   }
-  html+=`</section><section class="panel"><div class="notice">GOOD HABITはCLEAR、悪習慣系は実際に起きたらFAILを押す。FAIL時のHP減少とEXPペナルティは独立して処理される。</div></section>`;
+  html+=`</section><section class="panel"><div class="notice">習慣系は「守った」か「やった」を記録。FAILするとHP減少・EXPペナルティが発生する。毎日の行動は1回だけ判定される。</div></section>`;
   return html
 }
 
 function renderStatus(){
   const attrs=[["english","📖","英語力","var(--blue)"],["university","🎓","大学","var(--green)"],["knowledge","💡","知識","var(--gold)"],["body","💪","身体","var(--red)"],["creative","🎨","創造","var(--purple)"]];
   const max=Math.max(1000,...Object.values(state.attributes));
-  return `<section class="panel"><div class="panel-title">STATUS</div><div class="hero-name">Lv.${state.level} 勇者</div><div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div></section>
+  return `<section class="panel"><div class="panel-title">STATUS</div><div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div><div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div></section>
   <section class="panel"><div class="panel-title">属性EXP</div><div class="attr-grid">${attrs.map(([k,i,n,c])=>`<div class="attr-card"><div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()}</span></div><div class="attr-bar"><div class="attr-fill" style="width:${Math.min(100,state.attributes[k]/max*100)}%;background:${c}"></div></div></div>`).join("")}</div></section>`
 }
 

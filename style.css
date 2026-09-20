@@ -58,3 +58,18 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .toast{position:fixed;left:50%;top:22px;transform:translate(-50%,-20px);opacity:0;pointer-events:none;border:2px solid var(--gold);background:#07121b;color:var(--gold);padding:12px 18px;box-shadow:4px 4px 0 #000;z-index:10;transition:.2s ease}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media(max-width:560px){.hero-panel{grid-template-columns:1fr}.hero-art{min-height:180px}.hero-sprite{font-size:72px}.attr-grid{grid-template-columns:1fr}.quest-item{grid-template-columns:auto 1fr}.quest-actions{grid-column:2;justify-content:flex-start}.shop-item{grid-template-columns:1fr auto}.shop-item .buy-btn{grid-column:2}}
+
+/* V5 RPG feedback */
+.quest-item.good-quest{border-left:4px solid var(--green)}
+.quest-item.avoid-quest{border-left:4px solid var(--orange)}
+.quest-kind{font-size:9px;color:var(--muted);margin-bottom:2px}
+.clear-btn.success-btn{border-color:var(--green);color:var(--green)}
+.levelup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:grid;place-items:center;z-index:30;animation:fadeIn .18s ease}
+.levelup-card{width:min(500px,90vw);border:3px solid var(--gold);background:#091721;padding:28px;text-align:center;box-shadow:8px 8px 0 #000;animation:levelPop .35s ease}
+.levelup-title{font-size:34px;color:var(--gold);letter-spacing:3px}
+.levelup-level{font-size:48px;margin:10px 0}
+.levelup-hero{font-size:90px}
+.reward-flash{position:fixed;left:50%;top:38%;z-index:25;pointer-events:none;font-size:42px;color:var(--gold);text-shadow:4px 4px #000;animation:rewardFloat 1s ease forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes levelPop{from{transform:scale(.65);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes rewardFloat{0%{transform:translate(-50%,20px) scale(.7);opacity:0}20%{opacity:1}100%{transform:translate(-50%,-100px) scale(1.15);opacity:0}}

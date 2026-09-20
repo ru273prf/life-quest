@@ -31,3 +31,11 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - TOTAL EXP update made explicit and normalized
 - RESET DATA no longer depends on browser confirm()
 - OPTIONS now shows current saved TOTAL EXP / HP / LEVEL
+
+
+## V5 RPG update
+- CLEAR / FAIL の操作感を改善
+- 「ゲームをしない」「2時以降に寝ない」を習慣チェックとして表示
+- EXP獲得・ペナルティの画面演出
+- レベルアップ演出
+- レベルに応じた勇者アイコン変化
