@@ -2,17 +2,17 @@ const STORAGE_KEY = "lifeQuest_v2";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
-  attributes: {english:0, university:0, knowledge:0, body:0, creative:0},
+  attributes: {english:0, academic:0, human:0},
   dailyDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}
 };
 
 const quests = [
   {id:"toefl",name:"TOEFLを1ページ進める",icon:"📖",exp:5,attr:"english",type:"good"},
-  {id:"university",name:"大学の課題を進める",icon:"🎓",exp:1,attr:"university",type:"good"},
-  {id:"train",name:"電車で勉強する",icon:"🚃",exp:3,attr:"knowledge",type:"good"},
-  {id:"sleep",name:"23:59までに寝る",icon:"🛏️",exp:5,attr:"body",type:"good",hpFail:10},
-  {id:"nogame",name:"ゲームをしない",icon:"🎮",exp:0,attr:null,type:"avoid",hpFail:15,penaltyExp:-100},
-  {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:null,type:"avoid",hpFail:5,penaltyExp:-5}
+  {id:"university",name:"大学の課題を進める",icon:"🎓",exp:1,attr:"academic",type:"good"},
+  {id:"train",name:"電車で勉強する",icon:"🚃",exp:3,attr:"academic",type:"good"},
+  {id:"sleep",name:"23:59までに寝る",icon:"🛏️",exp:5,attr:"human",type:"good",hpFail:10},
+  {id:"nogame",name:"ゲームをしない",icon:"🎮",exp:0,attr:"human",type:"avoid",hpFail:15,penaltyExp:-100},
+  {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:"human",type:"avoid",hpFail:5,penaltyExp:-5}
 ];
 
 const longQuests = [
@@ -37,22 +37,58 @@ function loadState(){
   try{
     const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
     if(!saved)return clone(defaultState);
-    return {...clone(defaultState),...saved,attributes:{...defaultState.attributes,...saved.attributes},stats:{...defaultState.stats,...saved.stats}};
-  }catch{return clone(defaultState)}
+
+    const oldAttrs=saved.attributes||{};
+    const hasNewModel=("academic" in oldAttrs)||("human" in oldAttrs);
+
+    let attrs;
+    if(hasNewModel){
+      attrs={
+        english:Number(oldAttrs.english)||0,
+        academic:Number(oldAttrs.academic)||0,
+        human:Number(oldAttrs.human)||0
+      };
+    }else{
+      // 旧5属性 → 新3属性へ移行
+      attrs={
+        english:Number(oldAttrs.english)||0,
+        academic:(Number(oldAttrs.university)||0)+(Number(oldAttrs.knowledge)||0),
+        human:(Number(oldAttrs.body)||0)+(Number(oldAttrs.creative)||0)
+      };
+    }
+
+    return {
+      ...clone(defaultState),
+      ...saved,
+      attributes:attrs,
+      stats:{...defaultState.stats,...(saved.stats||{})}
+    };
+  }catch{
+    return clone(defaultState)
+  }
 }
+
+function getTotalExp(){
+  return Object.values(state.attributes)
+    .reduce((sum,value)=>sum+(Number(value)||0),0);
+}
+
+function syncTotalExp(){
+  state.totalExp=getTotalExp();
+}
+
 function normalizeState(){
-  // V2で古い状態が残っていても、TOTAL EXPと属性EXPの矛盾を自動修正する。
-  const attrTotal = Object.values(state.attributes).reduce((sum, value) => sum + Math.max(0, Number(value)||0), 0);
-  state.totalExp = Math.max(0, Number(state.totalExp)||0);
-  if(state.totalExp < attrTotal) state.totalExp = attrTotal;
+  state.attributes.english=Number(state.attributes.english)||0;
+  state.attributes.academic=Number(state.attributes.academic)||0;
+  state.attributes.human=Number(state.attributes.human)||0;
 
-  state.hp = Math.max(0, Math.min(100, Number(state.hp)||0));
-  state.level = Math.max(1, Number(state.level)||1);
-  state.streak = Math.max(0, Number(state.streak)||0);
+  syncTotalExp();
 
-  // 「今日の全デイリー達成」を、ページを開いただけでは発生させない。
-  // STREAK更新は、ユーザーが最後のクエストを実際に操作した直後だけ行う。
-  state.lastDailyDate = state.lastDailyDate || null;
+  state.hp=Math.max(0,Math.min(100,Number(state.hp)||0));
+  state.level=Math.max(1,Number(state.level)||1);
+  state.streak=Math.max(0,Number(state.streak)||0);
+
+  state.lastDailyDate=state.lastDailyDate||null;
 }
 
 function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
@@ -77,26 +113,29 @@ function streakMultiplier(streak){
 }
 function expMultiplier(){
   const hp=state.hp>=100?1:state.hp>=50?.5:.25;
-  const streak=Math.min(10,1+Math.floor(state.streak/50)*2);
+  const streak=streakMultiplier(state.streak);
   return {hp,streak,total:hp*streak}
 }
+
 function addExp(raw,attr=null){
   const m=expMultiplier();
   const final=Math.round(Number(raw||0)*m.total);
 
-  // まずTOTAL EXPを確実に更新
-  const beforeTotal = Number(state.totalExp)||0;
-  state.totalExp = Math.max(0, beforeTotal + final);
-
-  // 属性EXPにも同じ最終EXPを加算
   if(attr && state.attributes[attr] !== undefined){
-    state.attributes[attr] = Math.max(0, (Number(state.attributes[attr])||0) + final);
+    state.attributes[attr]=(Number(state.attributes[attr])||0)+final;
   }
 
+  syncTotalExp();
 
   const oldLevel=state.level;
   while(state.totalExp>=levelThreshold(state.level+1)) state.level++;
-  return {final,oldLevel,newLevel:state.level,m,beforeTotal,afterTotal:state.totalExp};
+  while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+
+  return {
+    final,oldLevel,newLevel:state.level,m,
+    beforeTotal:state.totalExp-final,
+    afterTotal:state.totalExp
+  };
 }
 function logAction(name,exp){
   state.logs.push({at:Date.now(),name,exp});
@@ -122,11 +161,27 @@ function performQuest(q, outcome){
     state.dailyDone[key]="clear";
     lastResult={type:"clear",q,result};
   }else{
+    const oldLevel=state.level;
     if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
-    if(q.penaltyExp) state.totalExp=Math.max(0,state.totalExp+q.penaltyExp);
+
+    if(q.penaltyExp && q.attr){
+      state.attributes[q.attr]=(Number(state.attributes[q.attr])||0)+q.penaltyExp;
+      syncTotalExp();
+      while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+    }
+
     logAction(`${q.name} FAIL`,q.penaltyExp||0);
     state.dailyDone[key]="fail";
-    lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()}};
+    lastResult={
+      type:"fail",
+      q,
+      result:{
+        final:q.penaltyExp||0,
+        oldLevel,
+        newLevel:state.level,
+        m:expMultiplier()
+      }
+    };
   }
 
   const streakChanged = updateStreak();
@@ -245,7 +300,7 @@ function renderHome(){
   </section>
   <section class="panel"><div class="panel-title">TODAY'S STATUS</div>
     <div class="notice">HP ${state.hp>=100?"GOOD":state.hp>=50?"CAUTION":"DANGER"} ／ EXP倍率 <span class="multiplier">×${m.hp}</span> ／ STREAK倍率 <span class="multiplier">×${m.streak}</span> ／ TOTAL <span class="multiplier">×${m.total}</span></div>
-    <div class="notice" style="margin-top:6px">ATTRIBUTE TOTAL ${Object.values(state.attributes).reduce((a,b)=>a+(Number(b)||0),0).toLocaleString()} ／ TOTAL EXP ${state.totalExp.toLocaleString()}</div>
+    <div class="notice" style="margin-top:6px">英語力 ${state.attributes.english.toLocaleString()} ／ 学力 ${state.attributes.academic.toLocaleString()} ／ 人間力 ${state.attributes.human.toLocaleString()} ／ TOTAL ${state.totalExp.toLocaleString()}</div>
   </section>
   <section class="panel"><div class="panel-title">🔥 STREAK REWARD</div>
     <div class="streak-card">
@@ -315,10 +370,24 @@ function renderQuest(){
 }
 
 function renderStatus(){
-  const attrs=[["english","📖","英語力","var(--blue)"],["university","🎓","大学","var(--green)"],["knowledge","💡","知識","var(--gold)"],["body","💪","身体","var(--red)"],["creative","🎨","創造","var(--purple)"]];
-  const max=Math.max(1000,...Object.values(state.attributes));
-  return `<section class="panel"><div class="panel-title">STATUS</div><div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div><div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div></section>
-  <section class="panel"><div class="panel-title">属性EXP</div><div class="attr-grid">${attrs.map(([k,i,n,c])=>`<div class="attr-card"><div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div><div class="attr-level">ATTRIBUTE Lv.${attrLevel(state.attributes[k])}</div><div class="attr-bar"><div class="attr-fill" style="width:${(state.attributes[k]%100)}%;background:${c}"></div></div></div>`).join("")}</div></section>`
+  const attrs=[
+    ["english","📖","英語力","TOEFL・英語学習","var(--blue)"],
+    ["academic","🎓","学力","大学の理系科目・課題","var(--green)"],
+    ["human","⚔️","人間力","生活習慣・健康・娯楽など","var(--gold)"]
+  ];
+  return `<section class="panel"><div class="panel-title">STATUS</div>
+    <div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div>
+    <div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div>
+  </section>
+  <section class="panel"><div class="panel-title">属性EXP</div>
+    <div class="attr-grid">${attrs.map(([k,i,n,d,c])=>`
+      <div class="attr-card">
+        <div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div>
+        <div class="attr-level">Lv.${attrLevel(state.attributes[k])}</div>
+        <div class="notice" style="font-size:10px;margin:4px 0">${d}</div>
+        <div class="attr-bar"><div class="attr-fill" style="width:${Math.max(0,state.attributes[k]%100)}%;background:${c}"></div></div>
+      </div>`).join("")}</div>
+  </section>`
 }
 
 function renderShop(){
@@ -372,7 +441,17 @@ function bindEvents(){
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=quests.find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-buy]").forEach(b=>b.addEventListener("click",()=>{
     const i=shops.find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
-    state.totalExp-=i.price;state.purchased.push({id:i.id,at:Date.now()});saveState();toast(`${i.name} を購入`);render()
+    let remain=i.price;
+    for(const k of ["human","academic","english"]){
+      const take=Math.min(Math.max(0,state.attributes[k]),remain);
+      state.attributes[k]-=take;
+      remain-=take;
+      if(remain<=0)break;
+    }
+    syncTotalExp();
+    while(state.level>1 && state.totalExp<levelThreshold(state.level)) state.level--;
+    state.purchased.push({id:i.id,at:Date.now()});
+    saveState();toast(`${i.name} を購入`);render()
   }));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));
 }
