@@ -289,3 +289,109 @@ button,.panel,.topbar,.bottom-nav,.quest-item,.attr-card,.setting,.item-row,.sho
   .bottom-nav{width:calc(100% - 20px);bottom:7px}
   .nav-btn{min-height:58px}
 }
+
+/* ===== V30 MONOCHROME DESKTOP RETRO ===== */
+:root{
+  --bg:#0b0b0b;
+  --panel:#151515;
+  --panel2:#1d1d1d;
+  --line:#d8d8d8;
+  --gold:#f2f2f2;
+  --text:#f5f5f5;
+  --muted:#9a9a9a;
+  --green:#d4d4d4;
+  --red:#bdbdbd;
+  --blue:#cfcfcf;
+  --purple:#bcbcbc;
+  --orange:#a8a8a8;
+  --pixel-bg:#090909;
+  --pixel-panel:#151515;
+  --pixel-panel-hi:#202020;
+  --pixel-panel-low:#101010;
+  --pixel-border:#dedede;
+  --pixel-dim:#666;
+  --pixel-gold:#fff;
+  --pixel-shadow:#000;
+}
+html{background:#090909}
+body{
+  color:#f1f1f1;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 4px),
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),
+    #090909;
+  background-size:auto,8px 8px,auto;
+}
+.app-shell{width:min(1080px,calc(100% - 40px));padding:22px 0 112px}
+.topbar{
+  border-color:#eee;background:#111;box-shadow:7px 7px 0 #000,inset 0 0 0 2px #3a3a3a;
+  padding:18px 20px;
+}
+.topbar:before{background:#fff}
+.game-title{font-size:31px;letter-spacing:5px;text-shadow:3px 3px 0 #000}
+.subtitle{color:#999}
+.date-box{color:#ddd}
+.screen{padding:20px 0 28px}
+.panel{
+  border-color:#ddd;background:linear-gradient(180deg,#1c1c1c,#111);
+  box-shadow:7px 7px 0 #000,inset 0 0 0 2px #383838;
+  padding:20px;margin-bottom:18px;
+}
+.panel:after{border-color:#fff}
+.panel-title,.hero-name{color:#fff}
+.hero-panel{min-height:330px;grid-template-columns:1.05fr 1.25fr;gap:22px}
+.hero-art{
+  min-height:275px;border-color:#aaa;box-shadow:inset 0 0 0 2px #333,5px 5px 0 #000;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 2px,transparent 2px 7px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 8px),
+    #171717;
+}
+.hero-art:before{border-color:#555}
+.hero-sprite{filter:grayscale(1) contrast(1.25) drop-shadow(5px 5px 0 #000);}
+.big-level{font-size:42px}
+.stat-label{color:#ddd}
+.bar{border-color:#ddd;background:#050505;box-shadow:3px 3px 0 #000}
+.exp-fill,.hp-fill,.streak-fill{background:repeating-linear-gradient(90deg,#eee 0 8px,#aaa 8px 12px)}
+.fill{filter:grayscale(1)}
+.attr-grid{grid-template-columns:repeat(3,1fr);gap:14px}
+.attr-card{border-color:#666;background:#111;box-shadow:3px 3px 0 #000}
+.attr-fill{background:#ddd!important}
+.quest-tabs{gap:10px}
+.tab{border-color:#777;background:#111;color:#ccc}
+.tab.active{border-color:#fff;color:#fff;background:#222}
+.quest-item{border-color:#555;background:#111;box-shadow:3px 3px 0 #000}
+.quest-item.good-quest,.quest-item.avoid-quest{border-left-color:#aaa}
+.clear-btn,.fail-btn,.buy-btn,.item-use-btn,.small-btn,.setting button,.file-import-btn,.danger-full,.save-quest-btn,.back-btn{
+  border-color:#ddd;background:#171717;color:#eee;box-shadow:3px 3px 0 #000;
+}
+.clear-btn.success-btn{border-color:#fff;color:#fff}
+.fail-btn{border-color:#aaa;color:#ddd}
+.clear-btn:hover,.fail-btn:hover,.small-btn:hover,.setting button:hover,.item-use-btn:hover{background:#2a2a2a;border-color:#fff}
+.attr-level,.price,.item-count,.section-title,.item-get-title,.multiplier{color:#fff}
+.item-row,.shop-item,.item-setting-row,.shop-setting-row,.setting,.quest-edit-row,.reward-choice,.item-get-card{border-color:#555;background:#111;box-shadow:3px 3px 0 #000}
+.item-get-card{border-color:#ddd}
+.bottom-nav{
+  width:min(1080px,calc(100% - 40px));bottom:18px;
+  border-color:#ddd;background:#101010;box-shadow:7px 7px 0 #000,inset 0 0 0 2px #383838;
+}
+.nav-btn{border-right-color:#444;color:#888;min-height:66px}
+.nav-btn.active{color:#fff;background:#242424;box-shadow:inset 0 0 0 2px #555}
+.nav-btn:hover{color:#fff;background:#1b1b1b}
+.toast{border-color:#fff;background:#111;color:#fff;box-shadow:5px 5px 0 #000}
+.levelup-card{border-color:#fff;background:#111;box-shadow:9px 9px 0 #000}
+.levelup-title{color:#fff}
+.reward-flash{color:#fff}
+.notice,.quest-meta,.subtitle,.streak-next,.progress,.quest-kind,.attr-level{color:#888}
+.mini-progress{border-color:#777;background:#050505}.mini-progress>div{background:#ddd}
+.command{border-color:#555;background:#111;color:#eee;box-shadow:3px 3px 0 #000}
+.command:hover{border-color:#fff;background:#222}
+.log-row{border-color:#555!important;background:#111}
+
+/* Desktop-first: keep the game frame broad and reduce phone-like stacking. */
+@media(max-width:800px){
+  .app-shell{width:calc(100% - 24px)}
+  .bottom-nav{width:calc(100% - 24px)}
+  .hero-panel{grid-template-columns:1fr}
+  .attr-grid{grid-template-columns:1fr 1fr}
+}
