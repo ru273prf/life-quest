@@ -3,7 +3,16 @@ const STORAGE_KEY = "lifeQuest_v2";
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
   attributes: {english:0, academic:0, human:0},
-  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}, questConfig:null
+  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}, questConfig:null,
+  settings:{
+    exp:{levelBase:100,levelStep:50,streakMultipliers:{50:2,100:4,150:6,200:8,250:10}},
+    hp:{max:100,highThreshold:100,midThreshold:50,highMultiplier:1,midMultiplier:0.5,lowMultiplier:0.25},
+    attributes:{
+      english:{label:"英語力",icon:"📖",description:"TOEFL・英語学習"},
+      academic:{label:"学力",icon:"🎓",description:"大学の理系科目・課題"},
+      human:{label:"人間力",icon:"⚔️",description:"生活習慣・健康・娯楽など"}
+    }
+  }
 };
 
 const defaultQuests = [
@@ -25,7 +34,7 @@ const defaultLongQuests = [
   {id:"study100",name:"勉強時間100時間",icon:"⏱️",goal:100,reward:500,key:"studyHours"}
 ];
 
-const shops = [
+const defaultShops = [
   {id:"game30",name:"ゲーム30分券",icon:"🎮",price:500},
   {id:"netflix60",name:"Netflix 1時間券",icon:"📺",price:300},
   {id:"free",name:"自由時間1時間券",icon:"☕",price:1000}
@@ -36,6 +45,21 @@ normalizeState();
 let currentScreen = "home";
 let currentQuestTab = "daily";
 let lastResult = null;
+
+function ensureSettings(){
+  if(!state.settings || typeof state.settings!=="object") state.settings=clone(defaultState.settings);
+  state.settings.exp={...defaultState.settings.exp,...(state.settings.exp||{})};
+  state.settings.exp.streakMultipliers={...defaultState.settings.exp.streakMultipliers,...(state.settings.exp.streakMultipliers||{})};
+  state.settings.hp={...defaultState.settings.hp,...(state.settings.hp||{})};
+  state.settings.attributes={...defaultState.settings.attributes,...(state.settings.attributes||{})};
+  for(const k of ["english","academic","human"]){state.settings.attributes[k]={...defaultState.settings.attributes[k],...(state.settings.attributes[k]||{})}}
+  if(!Array.isArray(state.settings.shops)) state.settings.shops=clone(defaultShops);
+}
+function getShops(){ensureSettings();return state.settings.shops}
+function getAttrConfig(key){ensureSettings();return state.settings.attributes[key]||defaultState.settings.attributes[key]}
+function attrLabel(a){return getAttrConfig(a).label}
+function attrIcon(a){return getAttrConfig(a).icon}
+function attrDescription(a){return getAttrConfig(a).description}
 
 function ensureQuestConfig(){
   if(!state.questConfig || typeof state.questConfig!=="object") state.questConfig={};
@@ -48,7 +72,6 @@ function ensureQuestConfig(){
 function getDailyQuests(){ensureQuestConfig();return state.questConfig.daily}
 function getNormalQuests(){ensureQuestConfig();return state.questConfig.normal}
 function getLongQuests(){ensureQuestConfig();return state.questConfig.long}
-function attrLabel(a){return a==="english"?"英語力":a==="academic"?"学力":"人間力"}
 function questCategoryLabel(c){return c==="daily"?"DAILY":c==="normal"?"NORMAL":"LONG"}
 function makeQuestId(){return "custom_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
@@ -87,7 +110,8 @@ function loadState(){
       ...saved,
       attributes:attrs,
       stats:{...defaultState.stats,...(saved.stats||{})},
-      questConfig:cfg
+      questConfig:cfg,
+      settings:{...clone(defaultState.settings),...(saved.settings||{})}
     };
   }catch{
     return clone(defaultState)
@@ -112,13 +136,14 @@ function normalizeAttributes(){
 
 function normalizeState(){
   normalizeAttributes();
+  ensureSettings();
   state.attributes.english=Number(state.attributes.english)||0;
   state.attributes.academic=Number(state.attributes.academic)||0;
   state.attributes.human=Number(state.attributes.human)||0;
 
   syncTotalExp();
 
-  state.hp=Math.max(0,Math.min(100,Number(state.hp)||0));
+  state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,Number(state.hp)||0));
   state.level=Math.max(1,Number(state.level)||1);
   state.streak=Math.max(0,Number(state.streak)||0);
 
@@ -142,11 +167,12 @@ function formatDate(){
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} (${days[d.getDay()]})`
 }
 function levelThreshold(level){
-  // Total EXP required to reach the given level.
-  // Lv.1 = 0, Lv.2 = 100, Lv.3 = 250, Lv.4 = 450, ...
   level=Math.max(1,Math.floor(Number(level)||1));
+  ensureSettings();
+  const base=Math.max(1,Number(state.settings.exp.levelBase)||100);
+  const step=Math.max(0,Number(state.settings.exp.levelStep)||50);
   let total=0;
-  for(let i=1;i<level;i++) total += 100 + (i-1)*50;
+  for(let i=1;i<level;i++) total += base + (i-1)*step;
   return total;
 }
 function levelProgress(){
@@ -168,15 +194,19 @@ function recalcLevel(){
   return {oldLevel,newLevel:state.level};
 }
 function streakMultiplier(streak){
-  if(streak >= 250) return 10;
-  if(streak >= 200) return 8;
-  if(streak >= 150) return 6;
-  if(streak >= 100) return 4;
-  if(streak >= 50) return 2;
+  ensureSettings();
+  const m=state.settings.exp.streakMultipliers;
+  if(streak>=250)return Number(m[250])||10;
+  if(streak>=200)return Number(m[200])||8;
+  if(streak>=150)return Number(m[150])||6;
+  if(streak>=100)return Number(m[100])||4;
+  if(streak>=50)return Number(m[50])||2;
   return 1;
 }
 function expMultiplier(){
-  const hp=state.hp>=100?1:state.hp>=50?.5:.25;
+  ensureSettings();
+  const h=state.settings.hp;
+  const hp=state.hp>=Number(h.highThreshold)?Number(h.highMultiplier):state.hp>=Number(h.midThreshold)?Number(h.midMultiplier):Number(h.lowMultiplier);
   const streak=streakMultiplier(state.streak);
   return {hp,streak,total:hp*streak}
 }
@@ -225,7 +255,7 @@ function performNormalQuest(q,outcome){
     if(result.newLevel>result.oldLevel) setTimeout(()=>showLevelUp(result.newLevel),350);
   }else{
     const oldLevel=state.level;
-    if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
+    if(q.hpFail) state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail));
     if(q.penaltyExp && q.attr){
       state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
       syncTotalExp();
@@ -253,7 +283,7 @@ function performQuest(q, outcome){
     lastResult={type:"clear",q,result};
   }else{
     const oldLevel=state.level;
-    if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
+    if(q.hpFail) state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail));
 
     if(q.penaltyExp && q.attr){
       state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
@@ -482,9 +512,9 @@ function renderQuest(){
 
 function renderStatus(){
   const attrs=[
-    ["english","📖","英語力","TOEFL・英語学習","var(--blue)"],
-    ["academic","🎓","学力","大学の理系科目・課題","var(--green)"],
-    ["human","⚔️","人間力","生活習慣・健康・娯楽など","var(--gold)"]
+    ["english",getAttrConfig("english").icon,getAttrConfig("english").label,getAttrConfig("english").description,"var(--blue)"],
+    ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label,getAttrConfig("academic").description,"var(--green)"],
+    ["human",getAttrConfig("human").icon,getAttrConfig("human").label,getAttrConfig("human").description,"var(--gold)"]
   ];
   return `<section class="panel"><div class="panel-title">STATUS</div>
     <div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div>
@@ -502,8 +532,9 @@ function renderStatus(){
 }
 
 function renderShop(){
+  const shops=getShops();
   return `<section class="panel"><div class="panel-title">EXP SHOP</div><div class="notice">頑張った自分に、ごほうびを。購入するとEXPだけが減り、購入記録が残る。</div>
-  ${shops.map(i=>`<div class="shop-item"><div>${i.icon} ${i.name}</div><div class="price">${i.price.toLocaleString()} EXP</div><button class="buy-btn" data-buy="${i.id}" ${state.totalExp<i.price?"disabled":""}>購入</button></div>`).join("")}</section>`
+  ${getShops().map(i=>`<div class="shop-item"><div>${i.icon} ${i.name}</div><div class="price">${i.price.toLocaleString()} EXP</div><button class="buy-btn" data-buy="${i.id}" ${state.totalExp<i.price?"disabled":""}>購入</button></div>`).join("")}</section>`
 }
 
 function renderMore(){
@@ -556,41 +587,83 @@ function escapeAttr(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"
 function renderOptions(){
   document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS</div><div class="settings-list">
   <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
-  <div class="setting"><span>EXP設定</span><button disabled>次期実装</button></div>
-  <div class="setting"><span>HP設定</span><button disabled>次期実装</button></div>
-  <div class="setting"><span>属性設定</span><button disabled>次期実装</button></div>
-  <div class="setting"><span>ショップ設定</span><button disabled>次期実装</button></div>
-  <div class="setting"><span>データ管理</span><button data-reset>RESET DATA</button></div>
-  </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level}</div></section>
-  <section class="panel"><div class="notice">QUEST MANAGEMENTでは、デイリー・通常・長期のクエストを追加、編集、削除できます。</div></section>`;
+  <div class="setting"><span>EXP設定</span><button data-open-exp-settings>編集する</button></div>
+  <div class="setting"><span>HP設定</span><button data-open-hp-settings>編集する</button></div>
+  <div class="setting"><span>属性設定</span><button data-open-attr-settings>編集する</button></div>
+  <div class="setting"><span>ショップ設定</span><button data-open-shop-settings>編集する</button></div>
+  <div class="setting"><span>データ管理</span><button data-open-data-settings>開く</button></div>
+  </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak}</div></section>`;
   document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
-  document.querySelector("[data-reset]")?.addEventListener("click",()=>{
-    localStorage.removeItem(STORAGE_KEY); state=clone(defaultState); state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)}; lastResult=null; currentQuestTab="daily"; saveState(); render(); setTimeout(()=>toast("DATA RESET — Lv.1 / EXP 0 / HP 100"),50);
-  });
+  document.querySelector("[data-open-exp-settings]")?.addEventListener("click",()=>openSettingsPage("exp"));
+  document.querySelector("[data-open-hp-settings]")?.addEventListener("click",()=>openSettingsPage("hp"));
+  document.querySelector("[data-open-attr-settings]")?.addEventListener("click",()=>openSettingsPage("attributes"));
+  document.querySelector("[data-open-shop-settings]")?.addEventListener("click",()=>openSettingsPage("shops"));
+  document.querySelector("[data-open-data-settings]")?.addEventListener("click",()=>openSettingsPage("data"));
 }
-function openQuestEditor(category="daily"){document.getElementById("screen").innerHTML=renderQuestEditor(category);bindEditorEvents()}
-function openQuestForm(category,id=null){document.getElementById("screen").innerHTML=renderQuestForm(category,id);bindEditorEvents()}
-function bindEditorEvents(){
-  document.querySelectorAll("[data-editor-tab]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.editorTab)));
-  document.querySelectorAll("[data-new-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.newQuest)));
-  document.querySelectorAll("[data-edit-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.editCategory,b.dataset.editQuest)));
-  document.querySelectorAll("[data-delete-quest]").forEach(b=>b.addEventListener("click",()=>{
-    const c=b.dataset.deleteCategory,id=b.dataset.deleteQuest; const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(q=>q.id===id); if(idx<0)return;
-    list.splice(idx,1); if(c==="daily"){delete state.dailyDone[`${today()}_${id}`]} else if(c==="normal"){delete state.normalDone[id]}; saveState(); openQuestEditor(c); toast("QUEST DELETED");
-  }));
-  document.querySelector("[data-back-options]")?.addEventListener("click",()=>renderOptions());
-  document.querySelectorAll("[data-back-quest-editor]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.backQuestEditor)));
-  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q,"clear")}));
-  document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
-  document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
-  document.querySelector("[data-save-quest]")?.addEventListener("click",()=>{
-    const c=document.querySelector("[data-save-quest]").dataset.saveQuest,id=document.querySelector("[data-save-quest]").dataset.saveId;
-    const name=document.getElementById("quest-name")?.value.trim(); if(!name){toast("クエスト名を入力してね");return}
-    const q={id:id||makeQuestId(),name,icon:document.getElementById("quest-icon")?.value.trim()||"📜",attr:document.getElementById("quest-attr")?.value||"human"};
-    if(c==="long") Object.assign(q,{goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),key:document.getElementById("quest-key").value.trim()||makeQuestId()});
-    else {q.exp=Math.max(0,Number(document.getElementById("quest-exp").value)||0); Object.assign(q,{buttonMode:document.getElementById("quest-button-mode").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:-Math.max(0,Number(document.getElementById("quest-penalty").value)||0)}); if(c==="daily") q.type=document.getElementById("quest-type").value; else q.type="good";}
-    const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(x=>x.id===q.id); if(idx>=0) list[idx]=q; else list.push(q); saveState(); openQuestEditor(c); toast(id?"QUEST UPDATED":"QUEST ADDED");
-  });
+function settingsBack(){renderOptions()}
+function openSettingsPage(type){
+  if(type==="exp") return renderExpSettings();
+  if(type==="hp") return renderHpSettings();
+  if(type==="attributes") return renderAttributeSettings();
+  if(type==="shops") return renderShopSettings();
+  return renderDataSettings();
+}
+function renderExpSettings(){
+  const e=state.settings.exp,m=e.streakMultipliers;
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">EXP SETTINGS</div>
+  <div class="notice">レベルアップに必要なEXPと、STREAKによるEXP倍率を設定します。</div>
+  <div class="field-grid">
+    <label>Lv.2に必要なEXP<input id="exp-base" type="number" min="1" value="${e.levelBase}"></label>
+    <label>レベルごとの必要EXP増加<input id="exp-step" type="number" min="0" value="${e.levelStep}"></label>
+    <label>50 DAYS 倍率<input id="streak-50" type="number" min="0" step="0.1" value="${m[50]}"></label>
+    <label>100 DAYS 倍率<input id="streak-100" type="number" min="0" step="0.1" value="${m[100]}"></label>
+    <label>150 DAYS 倍率<input id="streak-150" type="number" min="0" step="0.1" value="${m[150]}"></label>
+    <label>200 DAYS 倍率<input id="streak-200" type="number" min="0" step="0.1" value="${m[200]}"></label>
+    <label>250 DAYS 倍率<input id="streak-250" type="number" min="0" step="0.1" value="${m[250]}"></label>
+  </div><div class="editor-actions"><button class="save-quest-btn" data-save-exp>SAVE</button><button class="back-btn" data-settings-back>← OPTIONS</button></div></section>`;
+  document.querySelector("[data-save-exp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.exp.levelBase=Math.max(1,v("exp-base"));state.settings.exp.levelStep=v("exp-step");for(const d of [50,100,150,200,250])state.settings.exp.streakMultipliers[d]=v(`streak-${d}`);recalcLevel();saveState();toast("EXP SETTINGS SAVED");settingsBack()});
+  document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
+}
+function renderHpSettings(){
+  const h=state.settings.hp;
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">HP SETTINGS</div><div class="notice">HPの最大値と、HPによるEXP倍率を設定します。</div>
+  <div class="field-grid"><label>最大HP<input id="hp-max" type="number" min="1" value="${h.max}"></label><label>通常倍率の境界HP<input id="hp-high" type="number" min="0" value="${h.highThreshold}"></label><label>警戒倍率の境界HP<input id="hp-mid" type="number" min="0" value="${h.midThreshold}"></label><label>通常時EXP倍率<input id="hp-m1" type="number" min="0" step="0.1" value="${h.highMultiplier}"></label><label>警戒時EXP倍率<input id="hp-m2" type="number" min="0" step="0.1" value="${h.midMultiplier}"></label><label>危険時EXP倍率<input id="hp-m3" type="number" min="0" step="0.1" value="${h.lowMultiplier}"></label></div>
+  <div class="notice">現在：HP ${state.hp} ／ EXP倍率 ×${expMultiplier().hp}</div><div class="editor-actions"><button class="save-quest-btn" data-save-hp>SAVE</button><button class="back-btn" data-settings-back>← OPTIONS</button></div></section>`;
+  document.querySelector("[data-save-hp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.hp.max=Math.max(1,v("hp-max"));state.settings.hp.highThreshold=v("hp-high");state.settings.hp.midThreshold=v("hp-mid");state.settings.hp.highMultiplier=v("hp-m1");state.settings.hp.midMultiplier=v("hp-m2");state.settings.hp.lowMultiplier=v("hp-m3");state.hp=Math.min(state.hp,state.settings.hp.max);saveState();toast("HP SETTINGS SAVED");settingsBack()});
+  document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
+}
+function renderAttributeSettings(){
+  const keys=["english","academic","human"];
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">ATTRIBUTE SETTINGS</div><div class="notice">3属性の名前・アイコン・説明を変更できます。内部キーは固定なのでゲームの計算は壊れません。</div>
+  <div class="attr-settings-list">${keys.map(k=>{const a=getAttrConfig(k);return `<div class="attr-setting"><div class="attr-setting-title">${a.icon} ${a.label}</div><div class="field-grid"><label>表示名<input id="attr-${k}-label" value="${escapeAttr(a.label)}"></label><label>アイコン<input id="attr-${k}-icon" value="${escapeAttr(a.icon)}" maxlength="4"></label><label class="wide-field">説明<input id="attr-${k}-desc" value="${escapeAttr(a.description)}"></label></div></div>`}).join("")}</div>
+  <div class="editor-actions"><button class="save-quest-btn" data-save-attrs>SAVE</button><button class="back-btn" data-settings-back>← OPTIONS</button></div></section>`;
+  document.querySelector("[data-save-attrs]").addEventListener("click",()=>{for(const k of keys){state.settings.attributes[k].label=document.getElementById(`attr-${k}-label`).value.trim()||defaultState.settings.attributes[k].label;state.settings.attributes[k].icon=document.getElementById(`attr-${k}-icon`).value.trim()||defaultState.settings.attributes[k].icon;state.settings.attributes[k].description=document.getElementById(`attr-${k}-desc`).value.trim()||defaultState.settings.attributes[k].description}saveState();toast("ATTRIBUTE SETTINGS SAVED");settingsBack()});
+  document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
+}
+function renderShopSettings(){
+  const list=getShops();
+  const rows=list.map(s=>`<div class="shop-setting-row"><div><div class="quest-edit-name">${s.icon} ${s.name}</div><div class="quest-meta">${Number(s.price).toLocaleString()} EXP</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-shop="${s.id}">編集</button><button class="small-btn danger" data-delete-shop="${s.id}">削除</button></div></div>`).join("");
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">SHOP SETTINGS</div><div class="notice">EXPショップの商品・価格・アイコンを管理します。</div><button class="add-quest-btn" data-new-shop>＋ NEW ITEM</button><div class="quest-editor-list">${rows||`<div class="notice">商品がありません。</div>`}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
+  document.querySelector("[data-new-shop]")?.addEventListener("click",()=>openShopForm());
+  document.querySelectorAll("[data-edit-shop]").forEach(b=>b.addEventListener("click",()=>openShopForm(b.dataset.editShop)));
+  document.querySelectorAll("[data-delete-shop]").forEach(b=>b.addEventListener("click",()=>{const i=list.findIndex(x=>x.id===b.dataset.deleteShop);if(i>=0){list.splice(i,1);saveState();renderShopSettings();toast("SHOP ITEM DELETED")}}));
+  document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
+}
+function openShopForm(id=null){
+  const q=id?getShops().find(x=>x.id===id):null;
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">${q?"EDIT ITEM":"NEW ITEM"}</div><div class="field-grid"><label>商品名<input id="shop-name" value="${escapeAttr(q?.name||"")}" placeholder="例：ゲーム30分券"></label><label>アイコン<input id="shop-icon" value="${escapeAttr(q?.icon||"🎁")}" maxlength="4"></label><label>価格EXP<input id="shop-price" type="number" min="0" value="${q?.price||500}"></label></div><div class="editor-actions"><button class="save-quest-btn" data-save-shop> SAVE </button><button class="back-btn" data-back-shop> CANCEL </button></div></section>`;
+  document.querySelector("[data-save-shop]").addEventListener("click",()=>{const name=document.getElementById("shop-name").value.trim();if(!name){toast("商品名を入力してね");return}const item={id:q?.id||makeQuestId(),name,icon:document.getElementById("shop-icon").value.trim()||"🎁",price:Math.max(0,Number(document.getElementById("shop-price").value)||0)};const list=getShops();const idx=list.findIndex(x=>x.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);saveState();renderShopSettings();toast(q?"SHOP ITEM UPDATED":"SHOP ITEM ADDED")});
+  document.querySelector("[data-back-shop]").addEventListener("click",renderShopSettings);
+}
+function renderDataSettings(){
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">DATA MANAGEMENT</div><div class="notice">LIFE QUESTの保存データをバックアップ・復元できます。バックアップはこの端末にJSONとして保存されます。</div>
+  <div class="data-actions"><button class="save-quest-btn" data-export-data>EXPORT JSON</button><label class="file-import-btn">IMPORT JSON<input id="import-data" type="file" accept="application/json,.json" hidden></label><button class="back-btn" data-clear-logs>LOGを消去</button><button class="danger-full" data-reset-all>RESET ALL DATA</button></div>
+  <div class="notice">現在のデータ：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak} ／ LOG ${state.logs.length}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
+  document.querySelector("[data-export-data]").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`life-quest-backup-${today()}.json`;a.click();URL.revokeObjectURL(a.href);toast("BACKUP EXPORTED")});
+  document.getElementById("import-data").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;try{const imported=JSON.parse(await f.text());if(!imported||typeof imported!=="object"||!imported.attributes)throw new Error("invalid");state={...clone(defaultState),...imported,settings:{...clone(defaultState.settings),...(imported.settings||{})}};normalizeState();saveState();lastResult=null;render();toast("DATA IMPORTED")}catch{toast("IMPORT FAILED")}});
+  document.querySelector("[data-clear-logs]").addEventListener("click",()=>{state.logs=[];saveState();renderDataSettings();toast("LOG CLEARED")});
+  document.querySelector("[data-reset-all]").addEventListener("click",()=>{state=clone(defaultState);state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)};state.settings=clone(defaultState.settings);lastResult=null;saveState();render();toast("ALL DATA RESET")});
+  document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
 
 function renderLogs(){
@@ -606,7 +679,7 @@ function bindEvents(){
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-buy]").forEach(b=>b.addEventListener("click",()=>{
-    const i=shops.find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
+    const i=getShops().find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
     let remain=i.price;
     for(const k of ["human","academic","english"]){
       const take=Math.min(Math.max(0,state.attributes[k]),remain);

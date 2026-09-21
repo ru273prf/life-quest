@@ -103,3 +103,14 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .quest-editor-list{display:grid;gap:7px}.quest-edit-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:10px;background:#0a1822}.quest-edit-name{font-size:12px}.quest-edit-actions{display:flex;gap:5px}.small-btn{border:1px solid var(--line);background:#111f28;color:var(--text);padding:6px 9px;cursor:pointer;font-size:11px}.small-btn.danger{border-color:var(--red);color:#ff8d91}
 .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field-grid label{display:block;font-size:11px;color:var(--muted)}.field-grid input,.field-grid select{display:block;width:100%;margin-top:5px;border:1px solid #61767d;background:#07131b;color:var(--text);padding:9px;font:inherit;font-size:12px}.editor-actions{display:flex;gap:8px;margin-top:14px}.save-quest-btn,.back-btn{flex:1;border:2px solid var(--gold);background:#17232d;color:var(--gold);padding:10px;cursor:pointer}.back-btn{border-color:#71858c;color:var(--text)}
 @media(max-width:560px){.field-grid{grid-template-columns:1fr}.quest-edit-row{grid-template-columns:1fr}.quest-edit-actions{justify-content:flex-start}}
+
+/* V21 OPTIONS settings */
+.attr-settings-list{display:grid;gap:10px;margin-top:10px}
+.attr-setting{border:1px solid #526a73;padding:11px;background:#0a1822}
+.attr-setting-title{font-size:13px;color:var(--gold);margin-bottom:8px}
+.wide-field{grid-column:1/-1}
+.data-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.file-import-btn,.danger-full{display:flex;align-items:center;justify-content:center;border:2px solid var(--line);background:#17232d;color:var(--text);padding:10px;cursor:pointer;font-size:12px}
+.danger-full{border-color:var(--red);color:#ff8d91}
+.shop-setting-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:10px;background:#0a1822}
+@media(max-width:560px){.data-actions{grid-template-columns:1fr}.wide-field{grid-column:auto}.shop-setting-row{grid-template-columns:1fr}.shop-setting-row .quest-edit-actions{justify-content:flex-start}}
