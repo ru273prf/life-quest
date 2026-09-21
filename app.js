@@ -1,4 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
+const APP_VERSION = "V22";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -148,6 +149,11 @@ function normalizeState(){
   state.streak=Math.max(0,Number(state.streak)||0);
 
   state.lastDailyDate=state.lastDailyDate||null;
+  state.dailyDone=state.dailyDone&&typeof state.dailyDone==="object"?state.dailyDone:{};
+  state.normalDone=state.normalDone&&typeof state.normalDone==="object"?state.normalDone:{};
+  state.purchased=Array.isArray(state.purchased)?state.purchased:[];
+  state.logs=Array.isArray(state.logs)?state.logs:[];
+  state.stats={...defaultState.stats,...(state.stats||{})};
   ensureQuestConfig();
   // V18の通常クエスト判定バグでテスト用2クエストが誤ってFAILEDになった場合だけ復元
   if(state.normalDone && state.normalDone.english1==="fail" && state.normalDone.human1==="fail" && !state._v19Recovered){
@@ -419,7 +425,7 @@ function renderHome(){
     <div>
       <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVELまで ${progress.remaining.toLocaleString()} EXP</div></div>
-      <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / 100</span></div><div class="bar"><div class="fill hp-fill" style="width:${state.hp}%"></div></div></div>
+      <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / 100</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
     </div>
   </section>
@@ -518,7 +524,7 @@ function renderStatus(){
   ];
   return `<section class="panel"><div class="panel-title">STATUS</div>
     <div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div>
-    <div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/100 ／ 🔥 STREAK ${state.streak}</div>
+    <div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/${state.settings.hp.max} ／ 🔥 STREAK ${state.streak}</div>
   </section>
   <section class="panel"><div class="panel-title">属性EXP</div>
     <div class="attr-grid">${attrs.map(([k,i,n,d,c])=>`
@@ -577,15 +583,76 @@ function renderQuestForm(category, id=null){
       <label>アイコン<input id="quest-icon" value="${escapeAttr(q?.icon||"📜")}" maxlength="4"></label>
       ${!long?`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`:""}
       ${long?`<label>目標値<input id="quest-goal" type="number" min="1" value="${q?.goal||100}"></label><label>達成報酬EXP<input id="quest-reward" type="number" min="0" value="${q?.reward||0}"></label><label>進捗キー<input id="quest-key" value="${escapeAttr(q?.key||makeQuestId())}"></label>`:`<label>獲得EXP<input id="quest-exp" type="number" value="${q?.exp||0}"></label>`}
-      ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label>`:""}
+      ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>CLEAR / FAIL</option><option value="avoid" ${type==="avoid"?"selected":""}>CLEAR / FAIL</option></select></label>`:""}
       ${!long?`<label>ボタン表示<select id="quest-button-mode"><option value="clear" ${(q?.buttonMode|| (daily?"both":"clear"))==="clear"?"selected":""}>CLEARのみ</option><option value="fail" ${q?.buttonMode==="fail"?"selected":""}>FAILのみ</option><option value="both" ${(q?.buttonMode|| (daily?"both":"clear"))==="both"?"selected":""}>CLEAR / FAIL</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" min="0" value="${Math.abs(Number(q?.penaltyExp)||0)}"></label>`:""}
     </div>
     <div class="editor-actions"><button class="save-quest-btn" data-save-quest="${category}" data-save-id="${q?.id||""}">SAVE</button><button class="back-btn" data-back-quest-editor="${category}">CANCEL</button></div>
   </section>`;
 }
 function escapeAttr(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+
+// ===== QUEST EDITOR EVENTS =====
+function openQuestEditor(category="daily"){
+  document.getElementById("screen").innerHTML=renderQuestEditor(category);
+  bindEditorEvents();
+}
+function openQuestForm(category,id=null){
+  document.getElementById("screen").innerHTML=renderQuestForm(category,id);
+  bindEditorEvents();
+}
+function bindEditorEvents(){
+  document.querySelectorAll("[data-editor-tab]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.editorTab)));
+  document.querySelectorAll("[data-new-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.newQuest)));
+  document.querySelectorAll("[data-edit-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.editCategory,b.dataset.editQuest)));
+  document.querySelectorAll("[data-delete-quest]").forEach(b=>b.addEventListener("click",()=>{
+    const c=b.dataset.deleteCategory,id=b.dataset.deleteQuest;
+    const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests();
+    const idx=list.findIndex(q=>q.id===id);
+    if(idx<0)return;
+    list.splice(idx,1);
+    if(c==="daily"){
+      Object.keys(state.dailyDone).forEach(k=>{if(k.endsWith("_"+id))delete state.dailyDone[k]});
+    }else if(c==="normal"){delete state.normalDone[id]}
+    saveState();
+    openQuestEditor(c);
+    toast("QUEST DELETED");
+  }));
+  document.querySelector("[data-back-options]")?.addEventListener("click",()=>renderOptions());
+  document.querySelectorAll("[data-back-quest-editor]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.backQuestEditor)));
+  document.querySelector("[data-save-quest]")?.addEventListener("click",()=>{
+    const btn=document.querySelector("[data-save-quest]");
+    const c=btn.dataset.saveQuest,id=btn.dataset.saveId;
+    const name=document.getElementById("quest-name")?.value.trim();
+    if(!name){toast("クエスト名を入力してね");return}
+    const q={
+      id:id||makeQuestId(),
+      name,
+      icon:document.getElementById("quest-icon")?.value.trim()||"📜",
+      attr:document.getElementById("quest-attr")?.value||"human"
+    };
+    if(c==="long") Object.assign(q,{
+      goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),
+      reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),
+      key:document.getElementById("quest-key").value.trim()||makeQuestId()
+    });
+    else {
+      q.exp=Math.max(0,Number(document.getElementById("quest-exp").value)||0);
+      q.buttonMode=document.getElementById("quest-button-mode")?.value||"clear";
+      q.hpFail=Math.max(0,Number(document.getElementById("quest-hp")?.value)||0);
+      q.penaltyExp=-Math.max(0,Number(document.getElementById("quest-penalty")?.value)||0);
+      q.type=c==="daily"?(document.getElementById("quest-type")?.value||"good"):"good";
+    }
+    const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests();
+    const idx=list.findIndex(x=>x.id===q.id);
+    if(idx>=0)list[idx]=q;else list.push(q);
+    saveState();
+    openQuestEditor(c);
+    toast(id?"QUEST UPDATED":"QUEST ADDED");
+  });
+}
+
 function renderOptions(){
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS</div><div class="settings-list">
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V22</span></div><div class="settings-list">
   <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
   <div class="setting"><span>EXP設定</span><button data-open-exp-settings>編集する</button></div>
   <div class="setting"><span>HP設定</span><button data-open-hp-settings>編集する</button></div>

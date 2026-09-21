@@ -1,10 +1,12 @@
-# LIFE QUEST V21
+# LIFE QUEST V22
 
-V21 adds a full OPTIONS settings area.
+V22: QUEST編集イベントを完全実装し、OPTIONSのEXP/HP/属性/ショップ/データ管理を実際に操作できる版。
 
-- EXP SETTINGS: level curve and STREAK multipliers
-- HP SETTINGS: max HP and HP-based EXP multipliers
-- ATTRIBUTE SETTINGS: rename/icon/description for the 3 attributes
-- SHOP SETTINGS: add/edit/delete shop items and prices
-- DATA MANAGEMENT: JSON export/import, clear logs, reset all data
-- Existing quest, streak, level, HP, attribute, and shop behavior is preserved.
+- TOTAL EXPは3属性EXPの合計から自動算出
+- 属性EXPは0未満にならない
+- デイリーは全件判定＆全件CLEARでSTREAK加算
+- CLEAR / FAIL表記に統一
+- クエストの追加・編集・削除
+- EXP / HP / 属性 / ショップ設定
+- JSONバックアップ・復元、ログ消去、全データリセット
+- キャッシュバスター: app.js?v=22 / style.css?v=22
