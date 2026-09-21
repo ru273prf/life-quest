@@ -422,3 +422,10 @@ body{
   height:100%;
 }
 @media(max-width:560px){.pixel-hero-svg{width:150px}}
+
+
+/* V32 limited quest long-press feedback */
+.long-clear-btn{position:relative;overflow:hidden;min-width:104px;touch-action:none}
+.long-clear-btn.charging{background:#ddd!important;color:#111!important;border-color:#fff!important}
+.long-clear-btn.charging:after{content:"";position:absolute;left:0;bottom:0;height:4px;width:100%;background:#111;animation:longPressCharge .8s linear forwards}
+@keyframes longPressCharge{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}

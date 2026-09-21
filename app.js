@@ -1,10 +1,10 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V27";
+const APP_VERSION = "V32";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
   attributes: {english:0, academic:0, human:0},
-  dailyDone: {}, normalDone: {}, logs: [], purchased: [], items: {}, stats:{toeflPages:0,studyHours:0}, questConfig:null,
+  dailyDone: {}, normalDone: {}, limitedDone: {}, logs: [], purchased: [], items: {}, stats:{toeflPages:0,studyHours:0}, questConfig:null,
   settings:{
     exp:{levelBase:100,levelStep:50,streakMultipliers:{50:2,100:4,150:6,200:8,250:10}},
     hp:{max:100,highThreshold:100,midThreshold:50,highMultiplier:1,midMultiplier:0.5,lowMultiplier:0.25},
@@ -79,6 +79,7 @@ function ensureQuestConfig(){
   if(!Array.isArray(state.questConfig.long)) state.questConfig.long=clone(defaultLongQuests);
   state.questConfig.daily=state.questConfig.daily.map(q=>({...q,type:q.type||"good",buttonMode:q.buttonMode||"both"}));
   state.questConfig.normal=state.questConfig.normal.map(q=>({...q,buttonMode:q.buttonMode||"clear"}));
+  state.questConfig.long=state.questConfig.long.map(q=>({...q,attr:q.attr||"human",exp:Number.isFinite(Number(q.exp))?Number(q.exp):Math.max(0,Number(q.reward)||0),buttonMode:q.buttonMode||"clear",hpFail:Math.max(0,Number(q.hpFail)||0),penaltyExp:Number(q.penaltyExp)||0}));
 }
 function getDailyQuests(){ensureQuestConfig();return state.questConfig.daily}
 function getNormalQuests(){ensureQuestConfig();return state.questConfig.normal}
@@ -166,6 +167,7 @@ function normalizeState(){
   state.lastDailyDate=state.lastDailyDate||null;
   state.dailyDone=state.dailyDone&&typeof state.dailyDone==="object"?state.dailyDone:{};
   state.normalDone=state.normalDone&&typeof state.normalDone==="object"?state.normalDone:{};
+  state.limitedDone=state.limitedDone&&typeof state.limitedDone==="object"?state.limitedDone:{};
   state.purchased=Array.isArray(state.purchased)?state.purchased:[];
   state.items=state.items&&typeof state.items==="object"?state.items:{};
   for(const item of getItemRewards()){
@@ -195,7 +197,7 @@ function levelThreshold(level){
   level=Math.max(1,Math.floor(Number(level)||1));
   ensureSettings();
   const base=Math.max(1,Number(state.settings.exp.levelBase)||100);
-  const step=Math.max(0,Number(state.settings.exp.levelStep)||50);
+  const step=Math.max(0,Number.isFinite(Number(state.settings.exp.levelStep))?Number(state.settings.exp.levelStep):50);
   let total=0;
   for(let i=1;i<level;i++) total += base + (i-1)*step;
   return total;
@@ -296,6 +298,41 @@ function performNormalQuest(q,outcome,quantity=1){
   }
   render();
 }
+function performLimitedQuest(q,outcome){
+  if(state.limitedDone[q.id])return;
+  const beforeHp=state.hp;
+  const beforeAttr=Number(state.attributes[q.attr]||0);
+  if(outcome==="clear"){
+    const result=q.exp>0?addExp(q.exp,q.attr):{final:0,oldLevel:state.level,newLevel:state.level};
+    state.limitedDone[q.id]="clear";
+    const idx=getLongQuests().findIndex(x=>x.id===q.id);
+    const attrDelta=Number(state.attributes[q.attr]||0)-beforeAttr;
+    logAction(`${q.name} CLEAR`,result.final,{type:"limited",outcome:"clear",qid:q.id,attr:q.attr,attrDelta,hpDelta:state.hp-beforeHp});
+    if(idx>=0)getLongQuests().splice(idx,1);
+    saveState(); showReward(result.final?`+${result.final} EXP`:`QUEST CLEAR!`);
+    if(result.newLevel>result.oldLevel)setTimeout(()=>showLevelUp(result.newLevel),350);
+  }else{
+    if(q.hpFail)state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail));
+    if(q.penaltyExp&&q.attr){state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);syncTotalExp();recalcLevel();}
+    state.limitedDone[q.id]="fail";
+    const attrDelta=Number(state.attributes[q.attr]||0)-beforeAttr;
+    logAction(`${q.name} FAIL`,q.penaltyExp||0,{type:"limited",outcome:"fail",qid:q.id,attr:q.attr,attrDelta,hpDelta:state.hp-beforeHp});
+    saveState(); showReward(q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
+  }
+  render();
+}
+
+function bindLongPressClear(btn){
+  let timer=null,triggered=false;
+  const cancel=()=>{if(timer){clearTimeout(timer);timer=null;}btn.classList.remove("charging")};
+  const start=()=>{if(btn.disabled)return;triggered=false;btn.classList.add("charging");timer=setTimeout(()=>{triggered=true;cancel();const q=getLongQuests().find(x=>x.id===btn.dataset.longClear);if(q)performLimitedQuest(q,"clear")},800)};
+  btn.addEventListener("pointerdown",start);
+  btn.addEventListener("pointerup",()=>{if(!triggered){cancel();toast("CLEARは長押し")}else cancel()});
+  btn.addEventListener("pointerleave",cancel);
+  btn.addEventListener("pointercancel",cancel);
+  btn.addEventListener("contextmenu",e=>e.preventDefault());
+}
+
 function performQuest(q, outcome){
   const key=keyFor(q);
   if(state.dailyDone[key])return;
@@ -407,38 +444,24 @@ function streakRewardText(streak){
 }
 
 function heroSprite(){
-  const stage = state.level>=20 ? "legend" : state.level>=10 ? "knight" : state.level>=5 ? "adventurer" : state.level>=3 ? "apprentice" : "novice";
-  return `<svg class="pixel-hero-svg ${stage}" viewBox="0 0 96 112" aria-label="HERO" role="img" shape-rendering="crispEdges">
-    <g fill="#f1f1f1">
-      <rect x="34" y="10" width="28" height="8"/>
-      <rect x="26" y="18" width="44" height="8"/>
-      <rect x="22" y="26" width="52" height="24"/>
-      <rect x="30" y="50" width="36" height="10"/>
-      <rect x="20" y="60" width="56" height="28"/>
-      <rect x="14" y="68" width="12" height="20"/>
-      <rect x="70" y="68" width="12" height="20"/>
-      <rect x="26" y="88" width="16" height="18"/>
-      <rect x="54" y="88" width="16" height="18"/>
+  return `<svg class="pixel-hero-svg fixed-hero" viewBox="0 0 96 112" aria-label="HERO" role="img" shape-rendering="crispEdges">
+    <g fill="#f4f4f4">
+      <rect x="30" y="10" width="36" height="8"/><rect x="22" y="18" width="52" height="8"/><rect x="18" y="26" width="60" height="8"/>
+      <rect x="26" y="34" width="44" height="22"/><rect x="22" y="56" width="52" height="8"/><rect x="18" y="64" width="34" height="30"/>
+      <rect x="54" y="64" width="20" height="30"/><rect x="24" y="94" width="18" height="10"/><rect x="54" y="94" width="18" height="10"/>
+      <rect x="76" y="38" width="6" height="50"/><rect x="70" y="32" width="18" height="8"/><rect x="82" y="28" width="6" height="12"/>
     </g>
     <g fill="#0b0b0b">
-      <rect x="30" y="26" width="36" height="8"/>
-      <rect x="26" y="34" width="8" height="10"/>
-      <rect x="62" y="34" width="8" height="10"/>
-      <rect x="38" y="42" width="20" height="4"/>
-      <rect x="20" y="64" width="56" height="8"/>
-      <rect x="42" y="72" width="12" height="8"/>
-      <rect x="30" y="88" width="12" height="6"/>
-      <rect x="54" y="88" width="12" height="6"/>
+      <rect x="26" y="18" width="44" height="6"/><rect x="22" y="26" width="8" height="8"/><rect x="66" y="26" width="8" height="8"/>
+      <rect x="34" y="34" width="28" height="5"/><rect x="30" y="42" width="7" height="7"/><rect x="59" y="42" width="7" height="7"/>
+      <rect x="40" y="51" width="16" height="4"/><rect x="18" y="60" width="56" height="7"/><rect x="24" y="67" width="8" height="27"/>
+      <rect x="42" y="67" width="12" height="27"/><rect x="64" y="67" width="10" height="27"/><rect x="24" y="94" width="18" height="5"/>
+      <rect x="54" y="94" width="18" height="5"/><rect x="76" y="46" width="6" height="42"/><rect x="70" y="40" width="18" height="5"/>
     </g>
-    <g class="hero-gear" fill="#bdbdbd">
-      <rect x="76" y="48" width="6" height="32"/>
-      <rect x="82" y="42" width="4" height="44"/>
-      <rect x="70" y="54" width="16" height="4"/>
-      <rect x="16" y="54" width="8" height="28"/>
-    </g>
-    <rect class="hero-accent" x="38" y="62" width="20" height="6" fill="#fff"/>
+    <g fill="#777"><rect x="34" y="25" width="28" height="4"/><rect x="32" y="57" width="32" height="4"/><rect x="78" y="52" width="4" height="22"/></g>
   </svg>`;
 }
+
 function heroStage(){
   if(state.level>=20) return "LEGENDARY HERO";
   if(state.level>=10) return "KNIGHT";
@@ -515,7 +538,7 @@ function renderQuest(){
   let html=`<section class="panel"><div class="panel-title">QUEST</div><div class="quest-tabs">
   <button class="tab ${currentQuestTab==="daily"?"active":""}" data-tab="daily">デイリー</button>
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
-  <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
+  <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">限定</button></div>`;
   if(currentQuestTab==="normal"){
     for(const q of getNormalQuests()){
       const mode=q.buttonMode||"clear";
@@ -536,9 +559,18 @@ function renderQuest(){
     }
   }else if(currentQuestTab==="long"){
     for(const q of getLongQuests()){
-      const value=state.stats[q.key]||0;
-      const pct=Math.min(100,value/q.goal*100);
-      html+=`<div class="quest-item"><div class="quest-icon">${q.icon}</div><div><div class="quest-name">${q.name}</div><div class="quest-meta">進捗 ${value} / ${q.goal} ／ REWARD +${q.reward} EXP</div><div class="bar"><div class="fill exp-fill" style="width:${pct}%"></div></div></div><div class="progress">${Math.round(pct)}%</div></div>`
+      const limitedState=state.limitedDone[q.id]||null;
+      const done=limitedState==="clear";
+      const failed=limitedState==="fail";
+      const mode=q.buttonMode||"clear";
+      const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}`:"");
+      const clearBtn=mode==="fail"?"":`<button class="clear-btn long-clear-btn ${done?"done":""}" data-long-clear="${q.id}" ${done?"disabled":""}>${done?"CLEARED":"CLEAR"}</button>`;
+      const failBtn=mode==="clear"?"":`<button class="fail-btn" data-long-fail="${q.id}" ${failed?"disabled":""}>${failed?"FAILED":"FAIL"}</button>`;
+      html+=`<div class="quest-item ${done?"done":failed?"failed":""}">
+        <div class="quest-icon">${q.icon}</div>
+        <div class="quest-main-content"><div class="quest-kind">LIMITED QUEST</div><div class="quest-name">${q.name}</div><div class="quest-meta">CLEAR: +${q.exp||0} EXP${failInfo}${!done?` ／ CLEARは長押し` : ""}</div></div>
+        <div class="quest-actions">${clearBtn}${failBtn}</div>
+      </div>`;
     }
   }else{
     for(const q of getDailyQuests()){
@@ -604,7 +636,7 @@ function renderQuestEditor(category="daily"){
   const rows=list.map(q=>{
     const modeLabel=(q.buttonMode||"clear")==="clear"?"CLEARのみ":(q.buttonMode||"clear")==="fail"?"FAILのみ":"CLEAR / FAIL";
     const failLabel=(q.hpFail?`HP -${q.hpFail}`:"")+(q.penaltyExp?`${q.hpFail?" ／ ":""}EXP ${q.penaltyExp}`:"");
-    const extra=category==="daily" ? `CLEAR / FAIL ／ ${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : category==="normal" ? `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
+    const extra=category==="daily" ? `CLEAR / FAIL ／ ${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : category==="normal" ? `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||q.reward||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}`;
     return `<div class="quest-edit-row"><div><div class="quest-edit-name">${q.icon||"📜"} ${q.name}</div><div class="quest-meta">${extra}</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-quest="${q.id}" data-edit-category="${category}">編集</button><button class="small-btn danger" data-delete-quest="${q.id}" data-delete-category="${category}">削除</button></div></div>`
   }).join("");
   return `<section class="panel"><div class="panel-title">QUEST MANAGEMENT</div>
@@ -612,7 +644,7 @@ function renderQuestEditor(category="daily"){
     <div class="quest-tabs editor-tabs">
       <button class="tab ${category==="daily"?"active":""}" data-editor-tab="daily">デイリー</button>
       <button class="tab ${category==="normal"?"active":""}" data-editor-tab="normal">通常</button>
-      <button class="tab ${category==="long"?"active":""}" data-editor-tab="long">長期</button>
+      <button class="tab ${category==="long"?"active":""}" data-editor-tab="long">限定</button>
     </div>
     <button class="add-quest-btn" data-new-quest="${category}">＋ NEW QUEST</button>
     <div class="quest-editor-list">${rows||`<div class="notice">まだクエストがありません。</div>`}</div>
@@ -629,10 +661,12 @@ function renderQuestForm(category, id=null){
     <div class="field-grid">
       <label>クエスト名<input id="quest-name" value="${escapeAttr(q?.name||"")}" placeholder="例：英語を30分勉強する"></label>
       <label>アイコン<input id="quest-icon" value="${escapeAttr(q?.icon||"📜")}" maxlength="4"></label>
-      ${!long?`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`:""}
-      ${long?`<label>目標値<input id="quest-goal" type="number" min="1" value="${q?.goal||100}"></label><label>達成報酬EXP<input id="quest-reward" type="number" min="0" value="${q?.reward||0}"></label><label>進捗キー<input id="quest-key" value="${escapeAttr(q?.key||makeQuestId())}"></label>`:`<label>獲得EXP<input id="quest-exp" type="number" value="${q?.exp||0}"></label>`}
+      ${`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`}
+      <label>獲得EXP<input id="quest-exp" type="number" min="0" value="${q?.exp??q?.reward??0}"></label>
       ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>CLEAR / FAIL</option><option value="avoid" ${type==="avoid"?"selected":""}>CLEAR / FAIL</option></select></label>`:""}
-      ${!long?`<label>ボタン表示<select id="quest-button-mode"><option value="clear" ${(q?.buttonMode|| (daily?"both":"clear"))==="clear"?"selected":""}>CLEARのみ</option><option value="fail" ${q?.buttonMode==="fail"?"selected":""}>FAILのみ</option><option value="both" ${(q?.buttonMode|| (daily?"both":"clear"))==="both"?"selected":""}>CLEAR / FAIL</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" min="0" value="${Math.abs(Number(q?.penaltyExp)||0)}"></label>`:""}
+      <label>ボタン表示<select id="quest-button-mode"><option value="clear" ${(q?.buttonMode|| (daily?"both":"clear"))==="clear"?"selected":""}>CLEARのみ</option><option value="fail" ${q?.buttonMode==="fail"?"selected":""}>FAILのみ</option><option value="both" ${(q?.buttonMode|| (daily?"both":"clear"))==="both"?"selected":""}>CLEAR / FAIL</option></select></label>
+      <label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label>
+      <label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" min="0" value="${Math.abs(Number(q?.penaltyExp)||0)}"></label>
     </div>
     <div class="editor-actions"><button class="save-quest-btn" data-save-quest="${category}" data-save-id="${q?.id||""}">SAVE</button><button class="back-btn" data-back-quest-editor="${category}">CANCEL</button></div>
   </section>`;
@@ -679,18 +713,11 @@ function bindEditorEvents(){
       icon:document.getElementById("quest-icon")?.value.trim()||"📜",
       attr:document.getElementById("quest-attr")?.value||"human"
     };
-    if(c==="long") Object.assign(q,{
-      goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),
-      reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),
-      key:document.getElementById("quest-key").value.trim()||makeQuestId()
-    });
-    else {
-      q.exp=Math.max(0,Number(document.getElementById("quest-exp").value)||0);
-      q.buttonMode=document.getElementById("quest-button-mode")?.value||"clear";
-      q.hpFail=Math.max(0,Number(document.getElementById("quest-hp")?.value)||0);
-      q.penaltyExp=-Math.max(0,Number(document.getElementById("quest-penalty")?.value)||0);
-      q.type=c==="daily"?(document.getElementById("quest-type")?.value||"good"):"good";
-    }
+    q.exp=Math.max(0,Number(document.getElementById("quest-exp")?.value)||0);
+    q.buttonMode=document.getElementById("quest-button-mode")?.value||"clear";
+    q.hpFail=Math.max(0,Number(document.getElementById("quest-hp")?.value)||0);
+    q.penaltyExp=-Math.max(0,Number(document.getElementById("quest-penalty")?.value)||0);
+    q.type=c==="daily"?(document.getElementById("quest-type")?.value||"good"):"good";
     const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests();
     const idx=list.findIndex(x=>x.id===q.id);
     if(idx>=0)list[idx]=q;else list.push(q);
@@ -701,7 +728,7 @@ function bindEditorEvents(){
 }
 
 function renderOptions(){
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V27</span></div><div class="settings-list">
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V32</span></div><div class="settings-list">
   <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
   <div class="setting"><span>EXP設定</span><button data-open-exp-settings>編集する</button></div>
   <div class="setting"><span>HP設定</span><button data-open-hp-settings>編集する</button></div>
@@ -737,7 +764,7 @@ function renderExpSettings(){
     <label>200 DAYS 倍率<input id="streak-200" type="number" min="0" step="0.1" value="${m[200]}"></label>
     <label>250 DAYS 倍率<input id="streak-250" type="number" min="0" step="0.1" value="${m[250]}"></label>
   </div><div class="editor-actions"><button class="save-quest-btn" data-save-exp>SAVE</button><button class="back-btn" data-settings-back>← OPTIONS</button></div></section>`;
-  document.querySelector("[data-save-exp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.exp.levelBase=Math.max(1,v("exp-base"));state.settings.exp.levelStep=v("exp-step");for(const d of [50,100,150,200,250])state.settings.exp.streakMultipliers[d]=v(`streak-${d}`);recalcLevel();saveState();toast("EXP SETTINGS SAVED");settingsBack()});
+  document.querySelector("[data-save-exp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.exp.levelBase=Math.max(1,v("exp-base"));state.settings.exp.levelStep=Math.max(0,Number(document.getElementById("exp-step").value)||0);for(const d of [50,100,150,200,250])state.settings.exp.streakMultipliers[d]=v(`streak-${d}`);recalcLevel();saveState();toast("EXP SETTINGS SAVED");settingsBack()});
   document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
 function renderHpSettings(){
@@ -802,6 +829,12 @@ function undoLog(logId){
   if(u.attr && u.attrDelta){state.attributes[u.attr]=Math.max(0,(Number(state.attributes[u.attr])||0)-Number(u.attrDelta));}
   if(u.hpDelta){state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-Number(u.hpDelta)));}
   if(u.statsDelta){state.stats.toeflPages=Math.max(0,(Number(state.stats.toeflPages)||0)-Number(u.statsDelta));}
+  if(u.type==="limited") {
+    if(u.outcome==="clear"){
+      state.questConfig.long.push({id:u.qid,name:log.name.replace(/ CLEAR$/,"").replace(/ FAIL$/, ""),icon:"📜",attr:u.attr||"human",exp:log.exp||0,buttonMode:"clear",hpFail:0,penaltyExp:0});
+    }
+    delete state.limitedDone[u.qid];
+  }
   if(u.type==="daily") {
     delete state.dailyDone[u.key];
     // この行動より後にSTREAK報酬を確定させたログがある場合も、
@@ -836,6 +869,8 @@ function bindEvents(){
   document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
   document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalClear}"]`);if(q)performNormalQuest(q,"clear",input?.value||1)}));
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalFail}"]`);if(q)performNormalQuest(q,"fail",input?.value||1)}));
+  document.querySelectorAll("[data-long-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getLongQuests().find(x=>x.id===b.dataset.longFail);if(q)performLimitedQuest(q,"fail")}));
+  document.querySelectorAll("[data-long-clear]").forEach(bindLongPressClear);
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-use-item]").forEach(b=>b.addEventListener("click",()=>useItem(b.dataset.useItem)));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));
