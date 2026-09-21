@@ -554,8 +554,6 @@ function renderHome(){
     <div class="hero-info">
       <div class="hero-name">勇者</div>
       <div class="big-level">Lv.${state.level}</div>
-      <div class="hero-stage">勇者</div>
-      <div class="v35-tagline">SMALL STEPS<br>MAKE A BIG DIFFERENCE.<br><span>—</span></div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
