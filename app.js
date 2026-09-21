@@ -1,10 +1,10 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V22";
+const APP_VERSION = "V23";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
   attributes: {english:0, academic:0, human:0},
-  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}, questConfig:null,
+  dailyDone: {}, normalDone: {}, logs: [], purchased: [], items: {}, stats:{toeflPages:0,studyHours:0}, questConfig:null,
   settings:{
     exp:{levelBase:100,levelStep:50,streakMultipliers:{50:2,100:4,150:6,200:8,250:10}},
     hp:{max:100,highThreshold:100,midThreshold:50,highMultiplier:1,midMultiplier:0.5,lowMultiplier:0.25},
@@ -12,7 +12,13 @@ const defaultState = {
       english:{label:"英語力",icon:"📖",description:"TOEFL・英語学習"},
       academic:{label:"学力",icon:"🎓",description:"大学の理系科目・課題"},
       human:{label:"人間力",icon:"⚔️",description:"生活習慣・健康・娯楽など"}
-    }
+    },
+    itemRewards:[
+      {id:"game30",name:"ゲーム30分券",icon:"🎮",description:"ゲームを30分楽しめる券",enabled:true},
+      {id:"netflix60",name:"Netflix 1時間券",icon:"📺",description:"Netflixを1時間楽しめる券",enabled:true},
+      {id:"free",name:"自由時間1時間券",icon:"☕",description:"好きなことを1時間やる券",enabled:true},
+      {id:"meal",name:"好きなご飯を食べる券",icon:"🍚",description:"好きなご飯を楽しむ券",enabled:true}
+    ]
   }
 };
 
@@ -54,9 +60,13 @@ function ensureSettings(){
   state.settings.hp={...defaultState.settings.hp,...(state.settings.hp||{})};
   state.settings.attributes={...defaultState.settings.attributes,...(state.settings.attributes||{})};
   for(const k of ["english","academic","human"]){state.settings.attributes[k]={...defaultState.settings.attributes[k],...(state.settings.attributes[k]||{})}}
-  if(!Array.isArray(state.settings.shops)) state.settings.shops=clone(defaultShops);
+  if(!Array.isArray(state.settings.itemRewards)){
+    const legacy=Array.isArray(state.settings.shops)?state.settings.shops:defaultShops;
+    state.settings.itemRewards=legacy.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true}));
+  }
+  state.settings.itemRewards=state.settings.itemRewards.map(x=>({...x,enabled:x.enabled!==false,description:x.description||"STREAK報酬アイテム"}));
 }
-function getShops(){ensureSettings();return state.settings.shops}
+function getItemRewards(){ensureSettings();return state.settings.itemRewards}
 function getAttrConfig(key){ensureSettings();return state.settings.attributes[key]||defaultState.settings.attributes[key]}
 function attrLabel(a){return getAttrConfig(a).label}
 function attrIcon(a){return getAttrConfig(a).icon}
@@ -106,13 +116,18 @@ function loadState(){
       normal:clone(defaultNormalQuests),
       long:clone(defaultLongQuests)
     };
+    const mergedSettings={...clone(defaultState.settings),...(saved.settings||{})};
+    // V22以前のSHOP設定をITEM抽選候補へ移行
+    if(!saved.settings?.itemRewards && Array.isArray(saved.settings?.shops)){
+      mergedSettings.itemRewards=saved.settings.shops.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true}));
+    }
     return {
       ...clone(defaultState),
       ...saved,
       attributes:attrs,
       stats:{...defaultState.stats,...(saved.stats||{})},
       questConfig:cfg,
-      settings:{...clone(defaultState.settings),...(saved.settings||{})}
+      settings:mergedSettings
     };
   }catch{
     return clone(defaultState)
@@ -152,6 +167,10 @@ function normalizeState(){
   state.dailyDone=state.dailyDone&&typeof state.dailyDone==="object"?state.dailyDone:{};
   state.normalDone=state.normalDone&&typeof state.normalDone==="object"?state.normalDone:{};
   state.purchased=Array.isArray(state.purchased)?state.purchased:[];
+  state.items=state.items&&typeof state.items==="object"?state.items:{};
+  for(const item of getItemRewards()){
+    state.items[item.id]=Math.max(0,Math.floor(Number(state.items[item.id])||0));
+  }
   state.logs=Array.isArray(state.logs)?state.logs:[];
   state.stats={...defaultState.stats,...(state.stats||{})};
   ensureQuestConfig();
@@ -343,8 +362,25 @@ function updateStreak(){
 
   state.streak = prevCompleted ? state.streak + 1 : 1;
   state.lastDailyDate = current;
+  const reward = grantRandomItem();
+  if(reward){
+    state._lastItemReward={id:reward.id,name:reward.name,icon:reward.icon,at:Date.now(),streak:state.streak};
+  }else{
+    state._lastItemReward=null;
+  }
   saveState();
+  if(reward){
+    setTimeout(()=>toast(`🎁 ITEM GET：${reward.icon} ${reward.name}`),700);
+  }
   return true;
+}
+
+function grantRandomItem(){
+  const choices=getItemRewards().filter(i=>i.enabled!==false);
+  if(!choices.length) return null;
+  const reward=choices[Math.floor(Math.random()*choices.length)];
+  state.items[reward.id]=Math.max(0,Math.floor(Number(state.items[reward.id])||0))+1;
+  return reward;
 }
 
 function render(){
@@ -353,7 +389,7 @@ function render(){
   document.getElementById("currentDate").textContent=formatDate();
   document.getElementById("headerStreak").textContent=state.streak;
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===currentScreen));
-  const map={home:renderHome,quest:renderQuest,status:renderStatus,shop:renderShop,more:renderMore};
+  const map={home:renderHome,quest:renderQuest,status:renderStatus,item:renderItem,more:renderMore};
   if(!map[currentScreen]) currentScreen="home";
   try{
     document.getElementById("screen").innerHTML=map[currentScreen]();
@@ -455,7 +491,7 @@ function renderHome(){
   <section class="panel"><div class="panel-title">COMMAND</div><div class="command-list">
     <button class="command" data-go="quest">▶ QUEST<small>今日の行動を記録する</small></button>
     <button class="command" data-go="status">▶ STATUS<small>属性EXPと成長を見る</small></button>
-    <button class="command" data-go="shop">▶ SHOP<small>EXPでご褒美を買う</small></button>
+    <button class="command" data-go="item">▶ ITEM<small>STREAKで獲得したアイテム</small></button>
     <button class="command" data-go="more">▶ MORE<small>実績・設定・ログ</small></button>
   </div></section>`
 }
@@ -537,10 +573,18 @@ function renderStatus(){
   </section>`
 }
 
-function renderShop(){
-  const shops=getShops();
-  return `<section class="panel"><div class="panel-title">EXP SHOP</div><div class="notice">頑張った自分に、ごほうびを。購入するとEXPだけが減り、購入記録が残る。</div>
-  ${getShops().map(i=>`<div class="shop-item"><div>${i.icon} ${i.name}</div><div class="price">${i.price.toLocaleString()} EXP</div><button class="buy-btn" data-buy="${i.id}" ${state.totalExp<i.price?"disabled":""}>購入</button></div>`).join("")}</section>`
+function renderItem(){
+  const rewards=getItemRewards();
+  const owned=rewards.filter(i=>(state.items[i.id]||0)>0);
+  const last=state._lastItemReward;
+  return `<section class="panel"><div class="panel-title">ITEM</div>
+  <div class="notice">🔥 STREAKが1増えるたび、設定された候補からランダムで1個もらえる。</div>
+  ${last?`<div class="item-get-card"><div class="item-get-title">🎁 LAST ITEM GET</div><div class="item-get-main">${last.icon} ${last.name}</div><div class="quest-meta">STREAK ${last.streak} で獲得</div></div>`:""}
+  <div class="section-title">所持アイテム</div>
+  ${owned.length?owned.map(i=>`<div class="item-row"><div class="item-main"><span class="item-icon">${i.icon}</span><div><div class="item-name">${i.name}</div><div class="quest-meta">${i.description||"STREAK報酬アイテム"}</div></div></div><div class="item-count">×${state.items[i.id]||0}</div></div>`).join(""):`<div class="notice">まだアイテムを持っていない。まずは今日のデイリーを全部CLEARしてSTREAKを1増やそう🔥</div>`}
+  <div class="section-title">現在の抽選候補</div>
+  ${rewards.filter(i=>i.enabled!==false).map(i=>`<div class="reward-choice">${i.icon} ${i.name}</div>`).join("")||`<div class="notice">抽選候補が設定されていません。</div>`}
+  </section>`
 }
 
 function renderMore(){
@@ -652,19 +696,19 @@ function bindEditorEvents(){
 }
 
 function renderOptions(){
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V22</span></div><div class="settings-list">
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V23</span></div><div class="settings-list">
   <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
   <div class="setting"><span>EXP設定</span><button data-open-exp-settings>編集する</button></div>
   <div class="setting"><span>HP設定</span><button data-open-hp-settings>編集する</button></div>
   <div class="setting"><span>属性設定</span><button data-open-attr-settings>編集する</button></div>
-  <div class="setting"><span>ショップ設定</span><button data-open-shop-settings>編集する</button></div>
+  <div class="setting"><span>ITEM設定</span><button data-open-item-settings>編集する</button></div>
   <div class="setting"><span>データ管理</span><button data-open-data-settings>開く</button></div>
-  </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak}</div></section>`;
+  </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak} ／ ITEM ${Object.values(state.items||{}).reduce((a,b)=>a+(Number(b)||0),0)}</div></section>`;
   document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
   document.querySelector("[data-open-exp-settings]")?.addEventListener("click",()=>openSettingsPage("exp"));
   document.querySelector("[data-open-hp-settings]")?.addEventListener("click",()=>openSettingsPage("hp"));
   document.querySelector("[data-open-attr-settings]")?.addEventListener("click",()=>openSettingsPage("attributes"));
-  document.querySelector("[data-open-shop-settings]")?.addEventListener("click",()=>openSettingsPage("shops"));
+  document.querySelector("[data-open-item-settings]")?.addEventListener("click",()=>openSettingsPage("items"));
   document.querySelector("[data-open-data-settings]")?.addEventListener("click",()=>openSettingsPage("data"));
 }
 function settingsBack(){renderOptions()}
@@ -672,7 +716,7 @@ function openSettingsPage(type){
   if(type==="exp") return renderExpSettings();
   if(type==="hp") return renderHpSettings();
   if(type==="attributes") return renderAttributeSettings();
-  if(type==="shops") return renderShopSettings();
+  if(type==="items") return renderItemSettings();
   return renderDataSettings();
 }
 function renderExpSettings(){
@@ -707,25 +751,27 @@ function renderAttributeSettings(){
   document.querySelector("[data-save-attrs]").addEventListener("click",()=>{for(const k of keys){state.settings.attributes[k].label=document.getElementById(`attr-${k}-label`).value.trim()||defaultState.settings.attributes[k].label;state.settings.attributes[k].icon=document.getElementById(`attr-${k}-icon`).value.trim()||defaultState.settings.attributes[k].icon;state.settings.attributes[k].description=document.getElementById(`attr-${k}-desc`).value.trim()||defaultState.settings.attributes[k].description}saveState();toast("ATTRIBUTE SETTINGS SAVED");settingsBack()});
   document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
-function renderShopSettings(){
-  const list=getShops();
-  const rows=list.map(s=>`<div class="shop-setting-row"><div><div class="quest-edit-name">${s.icon} ${s.name}</div><div class="quest-meta">${Number(s.price).toLocaleString()} EXP</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-shop="${s.id}">編集</button><button class="small-btn danger" data-delete-shop="${s.id}">削除</button></div></div>`).join("");
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">SHOP SETTINGS</div><div class="notice">EXPショップの商品・価格・アイコンを管理します。</div><button class="add-quest-btn" data-new-shop>＋ NEW ITEM</button><div class="quest-editor-list">${rows||`<div class="notice">商品がありません。</div>`}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
-  document.querySelector("[data-new-shop]")?.addEventListener("click",()=>openShopForm());
-  document.querySelectorAll("[data-edit-shop]").forEach(b=>b.addEventListener("click",()=>openShopForm(b.dataset.editShop)));
-  document.querySelectorAll("[data-delete-shop]").forEach(b=>b.addEventListener("click",()=>{const i=list.findIndex(x=>x.id===b.dataset.deleteShop);if(i>=0){list.splice(i,1);saveState();renderShopSettings();toast("SHOP ITEM DELETED")}}));
+function renderItemSettings(){
+  const list=getItemRewards();
+  const rows=list.map(i=>`<div class="item-setting-row"><div><div class="quest-edit-name">${i.icon} ${i.name} ${i.enabled!==false?'':'<span class=\"disabled-badge\">OFF</span>'}</div><div class="quest-meta">${escapeHtml(i.description||"STREAK報酬アイテム")}</div></div><div class="quest-edit-actions"><button class="small-btn" data-toggle-item="${i.id}">${i.enabled!==false?"抽選OFF":"抽選ON"}</button><button class="small-btn" data-edit-item="${i.id}">編集</button><button class="small-btn danger" data-delete-item="${i.id}">削除</button></div></div>`).join("");
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">ITEM SETTINGS</div><div class="notice">STREAKが1増えたときのランダム報酬候補を管理します。抽選確率は候補ごとに均等です。</div><button class="add-quest-btn" data-new-item>＋ NEW ITEM</button><div class="quest-editor-list">${rows||`<div class="notice">アイテム候補がありません。</div>`}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
+  document.querySelector("[data-new-item]")?.addEventListener("click",()=>openItemForm());
+  document.querySelectorAll("[data-edit-item]").forEach(b=>b.addEventListener("click",()=>openItemForm(b.dataset.editItem)));
+  document.querySelectorAll("[data-toggle-item]").forEach(b=>b.addEventListener("click",()=>{const i=list.find(x=>x.id===b.dataset.toggleItem);if(i){i.enabled=i.enabled===false;saveState();renderItemSettings();}}));
+  document.querySelectorAll("[data-delete-item]").forEach(b=>b.addEventListener("click",()=>{const i=list.findIndex(x=>x.id===b.dataset.deleteItem);if(i>=0){delete state.items[list[i].id];list.splice(i,1);saveState();renderItemSettings();toast("ITEM DELETED")}}));
   document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
-function openShopForm(id=null){
-  const q=id?getShops().find(x=>x.id===id):null;
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">${q?"EDIT ITEM":"NEW ITEM"}</div><div class="field-grid"><label>商品名<input id="shop-name" value="${escapeAttr(q?.name||"")}" placeholder="例：ゲーム30分券"></label><label>アイコン<input id="shop-icon" value="${escapeAttr(q?.icon||"🎁")}" maxlength="4"></label><label>価格EXP<input id="shop-price" type="number" min="0" value="${q?.price||500}"></label></div><div class="editor-actions"><button class="save-quest-btn" data-save-shop> SAVE </button><button class="back-btn" data-back-shop> CANCEL </button></div></section>`;
-  document.querySelector("[data-save-shop]").addEventListener("click",()=>{const name=document.getElementById("shop-name").value.trim();if(!name){toast("商品名を入力してね");return}const item={id:q?.id||makeQuestId(),name,icon:document.getElementById("shop-icon").value.trim()||"🎁",price:Math.max(0,Number(document.getElementById("shop-price").value)||0)};const list=getShops();const idx=list.findIndex(x=>x.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);saveState();renderShopSettings();toast(q?"SHOP ITEM UPDATED":"SHOP ITEM ADDED")});
-  document.querySelector("[data-back-shop]").addEventListener("click",renderShopSettings);
+function openItemForm(id=null){
+  const q=id?getItemRewards().find(x=>x.id===id):null;
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">${q?"EDIT ITEM":"NEW ITEM"}</div><div class="field-grid"><label>アイテム名<input id="item-name" value="${escapeAttr(q?.name||"")}" placeholder="例：ゲーム30分券"></label><label>アイコン<input id="item-icon" value="${escapeAttr(q?.icon||"🎁")}" maxlength="4"></label><label class="wide-field">説明<input id="item-desc" value="${escapeAttr(q?.description||"")}" placeholder="例：ゲームを30分楽しめる券"></label></div><div class="editor-actions"><button class="save-quest-btn" data-save-item>SAVE</button><button class="back-btn" data-back-item>CANCEL</button></div></section>`;
+  document.querySelector("[data-save-item]").addEventListener("click",()=>{const name=document.getElementById("item-name").value.trim();if(!name){toast("アイテム名を入力してね");return}const list=getItemRewards();const item={id:q?.id||makeQuestId(),name,icon:document.getElementById("item-icon").value.trim()||"🎁",description:document.getElementById("item-desc").value.trim()||"STREAK報酬アイテム",enabled:q?q.enabled!==false:true};const idx=list.findIndex(x=>x.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);if(state.items[item.id]===undefined)state.items[item.id]=0;saveState();renderItemSettings();toast(q?"ITEM UPDATED":"ITEM ADDED")});
+  document.querySelector("[data-back-item]").addEventListener("click",renderItemSettings);
 }
+
 function renderDataSettings(){
   document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">DATA MANAGEMENT</div><div class="notice">LIFE QUESTの保存データをバックアップ・復元できます。バックアップはこの端末にJSONとして保存されます。</div>
   <div class="data-actions"><button class="save-quest-btn" data-export-data>EXPORT JSON</button><label class="file-import-btn">IMPORT JSON<input id="import-data" type="file" accept="application/json,.json" hidden></label><button class="back-btn" data-clear-logs>LOGを消去</button><button class="danger-full" data-reset-all>RESET ALL DATA</button></div>
-  <div class="notice">現在のデータ：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak} ／ LOG ${state.logs.length}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
+  <div class="notice">現在のデータ：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak} ／ ITEM ${Object.values(state.items||{}).reduce((a,b)=>a+(Number(b)||0),0)} ／ LOG ${state.logs.length}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
   document.querySelector("[data-export-data]").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`life-quest-backup-${today()}.json`;a.click();URL.revokeObjectURL(a.href);toast("BACKUP EXPORTED")});
   document.getElementById("import-data").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;try{const imported=JSON.parse(await f.text());if(!imported||typeof imported!=="object"||!imported.attributes)throw new Error("invalid");state={...clone(defaultState),...imported,settings:{...clone(defaultState.settings),...(imported.settings||{})}};normalizeState();saveState();lastResult=null;render();toast("DATA IMPORTED")}catch{toast("IMPORT FAILED")}});
   document.querySelector("[data-clear-logs]").addEventListener("click",()=>{state.logs=[];saveState();renderDataSettings();toast("LOG CLEARED")});
@@ -745,20 +791,6 @@ function bindEvents(){
   document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q,"clear")}));
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
-  document.querySelectorAll("[data-buy]").forEach(b=>b.addEventListener("click",()=>{
-    const i=getShops().find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
-    let remain=i.price;
-    for(const k of ["human","academic","english"]){
-      const take=Math.min(Math.max(0,state.attributes[k]),remain);
-      state.attributes[k]-=take;
-      remain-=take;
-      if(remain<=0)break;
-    }
-    syncTotalExp();
-    recalcLevel();
-    state.purchased.push({id:i.id,at:Date.now()});
-    saveState();toast(`${i.name} を購入`);render()
-  }));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));
 }
 document.addEventListener("click",(event)=>{

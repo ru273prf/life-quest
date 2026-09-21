@@ -49,7 +49,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .attr-head{display:flex;justify-content:space-between;font-size:12px}.attr-bar{height:10px;background:#061017;border:1px solid #5c7077;margin-top:7px}.attr-fill{height:100%}
 .achievement{display:flex;gap:12px;align-items:center;border:1px solid #526a73;padding:10px;margin:8px 0}.badge{width:42px;height:42px;border:2px solid var(--gold);display:grid;place-items:center;font-size:21px}
 .achievement.locked{opacity:.45}.progress{font-size:10px;color:var(--muted);margin-top:4px}
-.shop-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;border:1px solid #526a73;padding:11px;margin:8px 0}.price{color:var(--gold);font-size:12px}
+.shop-item,.item-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:11px;margin:8px 0}.price{color:var(--gold);font-size:12px}.item-main{display:flex;gap:10px;align-items:center}.item-icon{font-size:28px}.item-name{font-weight:700}.item-count{font-size:20px;color:var(--gold);font-weight:700}.section-title{margin:18px 0 8px;color:var(--gold);font-size:14px;letter-spacing:1px}.reward-choice{border:1px solid #394e58;padding:9px;margin:5px 0;background:#0a1822}.item-get-card{border:1px solid var(--gold);padding:14px;margin:12px 0;background:#121f28}.item-get-title{color:var(--gold);font-size:12px}.item-get-main{font-size:24px;margin:8px 0}.item-setting-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:10px;background:#0a1822;margin:7px 0}.disabled-badge{font-size:10px;color:#ff6570;border:1px solid #ff6570;padding:2px 5px;margin-left:5px}
 .settings-list{display:grid;gap:8px}.setting{display:flex;justify-content:space-between;align-items:center;border:1px solid #526a73;padding:11px}
 .setting button{border:1px solid var(--line);background:#0a1822;color:var(--text);padding:6px 9px;cursor:pointer}
 .bottom-nav{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);width:min(732px,calc(100% - 28px));display:grid;grid-template-columns:repeat(5,1fr);border:2px solid var(--line);background:#07121b;box-shadow:4px 4px 0 #000}
@@ -57,7 +57,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .nav-btn span{display:block;font-size:9px;margin-top:3px}.nav-btn.active{color:var(--gold);background:#142531}
 .toast{position:fixed;left:50%;top:22px;transform:translate(-50%,-20px);opacity:0;pointer-events:none;border:2px solid var(--gold);background:#07121b;color:var(--gold);padding:12px 18px;box-shadow:4px 4px 0 #000;z-index:10;transition:.2s ease}
 .toast.show{opacity:1;transform:translate(-50%,0)}
-@media(max-width:560px){.hero-panel{grid-template-columns:1fr}.hero-art{min-height:180px}.hero-sprite{font-size:72px}.attr-grid{grid-template-columns:1fr}.quest-item{grid-template-columns:auto 1fr}.quest-actions{grid-column:2;justify-content:flex-start}.shop-item{grid-template-columns:1fr auto}.shop-item .buy-btn{grid-column:2}}
+@media(max-width:560px){.hero-panel{grid-template-columns:1fr}.hero-art{min-height:180px}.hero-sprite{font-size:72px}.attr-grid{grid-template-columns:1fr}.quest-item{grid-template-columns:auto 1fr}.quest-actions{grid-column:2;justify-content:flex-start}.shop-item,.item-row{grid-template-columns:1fr auto}.shop-item .buy-btn{grid-column:2}}
 
 /* V5 RPG feedback */
 .quest-item.good-quest{border-left:4px solid var(--green)}
@@ -112,7 +112,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .data-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .file-import-btn,.danger-full{display:flex;align-items:center;justify-content:center;border:2px solid var(--line);background:#17232d;color:var(--text);padding:10px;cursor:pointer;font-size:12px}
 .danger-full{border-color:var(--red);color:#ff8d91}
-.shop-setting-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:10px;background:#0a1822}
-@media(max-width:560px){.data-actions{grid-template-columns:1fr}.wide-field{grid-column:auto}.shop-setting-row{grid-template-columns:1fr}.shop-setting-row .quest-edit-actions{justify-content:flex-start}}
+.shop-setting-row,.item-setting-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #526a73;padding:10px;background:#0a1822}
+@media(max-width:560px){.data-actions{grid-template-columns:1fr}.wide-field{grid-column:auto}.shop-setting-row,.item-setting-row{grid-template-columns:1fr}.shop-setting-row .quest-edit-actions,.item-setting-row .quest-edit-actions{justify-content:flex-start}}
 
 .version-badge{font-size:10px;opacity:.65;margin-left:6px;letter-spacing:1px}
