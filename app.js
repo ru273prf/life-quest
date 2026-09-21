@@ -407,11 +407,37 @@ function streakRewardText(streak){
 }
 
 function heroSprite(){
-  if(state.level>=20) return "🛡️";
-  if(state.level>=10) return "⚔️";
-  if(state.level>=5) return "🧝";
-  if(state.level>=3) return "🧙";
-  return "🧑‍🌾";
+  const stage = state.level>=20 ? "legend" : state.level>=10 ? "knight" : state.level>=5 ? "adventurer" : state.level>=3 ? "apprentice" : "novice";
+  return `<svg class="pixel-hero-svg ${stage}" viewBox="0 0 96 112" aria-label="HERO" role="img" shape-rendering="crispEdges">
+    <g fill="#f1f1f1">
+      <rect x="34" y="10" width="28" height="8"/>
+      <rect x="26" y="18" width="44" height="8"/>
+      <rect x="22" y="26" width="52" height="24"/>
+      <rect x="30" y="50" width="36" height="10"/>
+      <rect x="20" y="60" width="56" height="28"/>
+      <rect x="14" y="68" width="12" height="20"/>
+      <rect x="70" y="68" width="12" height="20"/>
+      <rect x="26" y="88" width="16" height="18"/>
+      <rect x="54" y="88" width="16" height="18"/>
+    </g>
+    <g fill="#0b0b0b">
+      <rect x="30" y="26" width="36" height="8"/>
+      <rect x="26" y="34" width="8" height="10"/>
+      <rect x="62" y="34" width="8" height="10"/>
+      <rect x="38" y="42" width="20" height="4"/>
+      <rect x="20" y="64" width="56" height="8"/>
+      <rect x="42" y="72" width="12" height="8"/>
+      <rect x="30" y="88" width="12" height="6"/>
+      <rect x="54" y="88" width="12" height="6"/>
+    </g>
+    <g class="hero-gear" fill="#bdbdbd">
+      <rect x="76" y="48" width="6" height="32"/>
+      <rect x="82" y="42" width="4" height="44"/>
+      <rect x="70" y="54" width="16" height="4"/>
+      <rect x="16" y="54" width="8" height="28"/>
+    </g>
+    <rect class="hero-accent" x="38" y="62" width="20" height="6" fill="#fff"/>
+  </svg>`;
 }
 function heroStage(){
   if(state.level>=20) return "LEGENDARY HERO";
