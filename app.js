@@ -528,48 +528,48 @@ function showLevelUp(level){
   overlay.querySelector("[data-close-level]").addEventListener("click",()=>overlay.remove());
 }
 
+function heroScene(){
+  return `<div class="hero-scene" aria-label="勇者の冒険風景">
+    <div class="scene-stars">✦　·　✧　　·　✦　　·　　✧</div>
+    <div class="scene-moon"></div>
+    <div class="scene-mountains back"></div>
+    <div class="scene-castle"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+    <div class="scene-ground"></div>
+    <div class="scene-hero">${heroSprite()}</div>
+    <div class="scene-copy"><strong>LIFE<br>IS A QUEST.</strong><span>—</span></div>
+    <div class="scene-levelup">LEVEL UP.<br>A BETTER YOU.</div>
+  </div>`;
+}
+
 function renderHome(){
   const progress=levelProgress();
-  const m=expMultiplier();
   const attrs=[
-    ["english",getAttrConfig("english").icon,getAttrConfig("english").label,"var(--blue)"],
-    ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label,"var(--green)"],
-    ["human",getAttrConfig("human").icon,getAttrConfig("human").label,"var(--gold)"]
+    ["english",getAttrConfig("english").icon,getAttrConfig("english").label],
+    ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label],
+    ["human",getAttrConfig("human").icon,getAttrConfig("human").label]
   ];
   return `
-  <section class="panel hero-panel">
-    <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
-    <div>
-      <div class="hero-name">勇者</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
+  <section class="panel hero-panel v35-hero-panel">
+    <div class="hero-art v35-art">${heroScene()}</div>
+    <div class="hero-info">
+      <div class="hero-name">勇者</div>
+      <div class="big-level">Lv.${state.level}</div>
+      <div class="hero-stage">勇者</div>
+      <div class="v35-tagline">SMALL STEPS<br>MAKE A BIG DIFFERENCE.<br><span>—</span></div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
     </div>
   </section>
-  <section class="panel"><div class="panel-title">STATUS</div>
-    <div class="attr-grid">${attrs.map(([k,i,n,c])=>`
+  <section class="panel v35-status-panel"><div class="panel-title">STATUS <span></span></div>
+    <div class="attr-grid">${attrs.map(([k,i,n])=>`
       <div class="attr-card">
         <div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div>
         <div class="attr-level">Lv.${attrLevel(state.attributes[k])}</div>
-        <div class="attr-bar"><div class="attr-fill" style="width:${Math.max(0,state.attributes[k]%100)}%;background:${c}"></div></div>
+        <div class="attr-bar"><div class="attr-fill" style="width:${Math.max(0,state.attributes[k]%100)}%"></div></div>
       </div>`).join("")}</div>
-    <div class="status-total">TOTAL EXP ${state.totalExp.toLocaleString()} ／ EXP倍率 ×${m.total}</div>
   </section>
-  <section class="panel"><div class="panel-title">🔥 STREAK</div>
-    <div class="streak-card">
-      <div class="streak-fire">🔥</div>
-      <div><div class="streak-number">${state.streak} DAY STREAK</div><div class="streak-next">${streakRewardText(state.streak)}</div><div class="mini-progress"><div style="width:${state.streak>=250?100:(state.streak%50)/50*100}%"></div></div></div>
-      <div class="multiplier">×${streakMultiplier(state.streak)}</div>
-    </div>
-    <div class="reward-list">
-      <div class="reward-row"><span>50 DAYS</span><span>×2 EXP</span></div>
-      <div class="reward-row"><span>100 DAYS</span><span>×4 EXP</span></div>
-      <div class="reward-row"><span>150 DAYS</span><span>×6 EXP</span></div>
-      <div class="reward-row"><span>200 DAYS</span><span>×8 EXP</span></div>
-      <div class="reward-row"><span>250 DAYS</span><span>×10 EXP MAX</span></div>
-    </div>
-  </section>
-  ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="quest-meta">${escapeHtml(lastResult.q.name)}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}`
+  ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="quest-meta">${escapeHtml(lastResult.q.name)}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}`;
 }
 
 function renderQuest(){
