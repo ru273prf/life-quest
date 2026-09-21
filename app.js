@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V24";
+const APP_VERSION = "V25";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -577,14 +577,28 @@ function renderItem(){
   const rewards=getItemRewards();
   const owned=rewards.filter(i=>(state.items[i.id]||0)>0);
   const last=state._lastItemReward;
-  return `<section class="panel"><div class="panel-title">ITEM</div>
+  const html=`<section class="panel"><div class="panel-title">ITEM</div>
   <div class="notice">🔥 STREAKが1増えるたび、設定された候補からランダムで1個もらえる。</div>
-  ${last?`<div class="item-get-card"><div class="item-get-title">🎁 LAST ITEM GET</div><div class="item-get-main">${last.icon} ${last.name}</div><div class="quest-meta">STREAK ${last.streak} で獲得</div></div>`:""}
+  ${last?`<div class="item-get-card"><div class="item-get-title">🎁 LAST ITEM GET</div><div class="item-get-main">${last.icon} ${escapeHtml(last.name)}</div><div class="quest-meta">STREAK ${last.streak} で獲得</div></div>`:""}
   <div class="section-title">所持アイテム</div>
-  ${owned.length?owned.map(i=>`<div class="item-row"><div class="item-main"><span class="item-icon">${i.icon}</span><div><div class="item-name">${i.name}</div><div class="quest-meta">${i.description||"STREAK報酬アイテム"}</div></div></div><div class="item-count">×${state.items[i.id]||0}</div></div>`).join(""):`<div class="notice">まだアイテムを持っていない。まずは今日のデイリーを全部CLEARしてSTREAKを1増やそう🔥</div>`}
+  ${owned.length?owned.map(i=>`<div class="item-row"><div class="item-main"><span class="item-icon">${i.icon}</span><div><div class="item-name">${escapeHtml(i.name)}</div><div class="quest-meta">${escapeHtml(i.description||"STREAK報酬アイテム")}</div></div></div><div class="item-actions"><div class="item-count">×${state.items[i.id]||0}</div><button class="item-use-btn" data-use-item="${i.id}">使う</button></div></div>`).join(""):`<div class="notice">まだアイテムを持っていない。まずは今日のデイリーを全部CLEARしてSTREAKを1増やそう🔥</div>`}
   <div class="section-title">現在の抽選候補</div>
-  ${rewards.filter(i=>i.enabled!==false).map(i=>`<div class="reward-choice">${i.icon} ${i.name}</div>`).join("")||`<div class="notice">抽選候補が設定されていません。</div>`}
-  </section>`
+  ${rewards.filter(i=>i.enabled!==false).map(i=>`<div class="reward-choice">${i.icon} ${escapeHtml(i.name)}</div>`).join("")||`<div class="notice">抽選候補が設定されていません。</div>`}
+  </section>`;
+  document.querySelectorAll("[data-use-item]").forEach(btn=>btn.addEventListener("click",()=>useItem(btn.dataset.useItem)));
+  return html;
+}
+
+function useItem(itemId){
+  const item=getItemRewards().find(i=>i.id===itemId);
+  const count=Number(state.items[itemId]||0);
+  if(!item || count<=0){toast("そのITEMは持っていません");return}
+  if(!confirm(`${item.icon} ${item.name} を1個使いますか？`))return;
+  state.items[itemId]=count-1;
+  state._lastItemUsed={id:item.id,name:item.name,icon:item.icon,usedAt:new Date().toISOString()};
+  saveState();
+  render();
+  toast(`🎁 ${item.name} を使った！ 残り ×${state.items[itemId]}`);
 }
 
 function renderMore(){

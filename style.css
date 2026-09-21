@@ -116,3 +116,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(max-width:560px){.data-actions{grid-template-columns:1fr}.wide-field{grid-column:auto}.shop-setting-row,.item-setting-row{grid-template-columns:1fr}.shop-setting-row .quest-edit-actions,.item-setting-row .quest-edit-actions{justify-content:flex-start}}
 
 .version-badge{font-size:10px;opacity:.65;margin-left:6px;letter-spacing:1px}
+
+
+/* V25 ITEM USE */
+.item-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}.item-use-btn{border:2px solid var(--green);background:#10251b;color:var(--green);padding:7px 12px;cursor:pointer;font-size:11px}.item-use-btn:hover{background:#173823;border-color:#9ae8aa}.item-use-btn:active{transform:translateY(1px)}
+@media(max-width:560px){.item-actions{justify-content:flex-start}}
