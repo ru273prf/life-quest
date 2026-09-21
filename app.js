@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V26";
+const APP_VERSION = "V27";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -255,8 +255,8 @@ function addExp(raw,attr=null){
     afterTotal:state.totalExp
   };
 }
-function logAction(name,exp){
-  state.logs.push({at:Date.now(),name,exp});
+function logAction(name,exp,undo={}){
+  state.logs.push({id:makeQuestId(),at:Date.now(),name,exp,undo,undone:false});
   cleanupLogs()
 }
 function cleanupLogs(){
@@ -266,31 +266,33 @@ function cleanupLogs(){
 function keyFor(q){return `${today()}_${q.id}`}
 function statusFor(q){return state.dailyDone[keyFor(q)]||null}
 
-function performNormalQuest(q,outcome){
-  const saved=state.normalDone[q.id];
-  if(saved) return;
+function performNormalQuest(q,outcome,quantity=1){
+  quantity=Math.max(1,Math.floor(Number(quantity)||1));
   let result={final:0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()};
-  if(outcome==="clear"){
-    if(q.exp>0) result=addExp(q.exp,q.attr);
-    state.normalDone[q.id]="clear";
-    logAction(`${q.name} CLEAR`,result.final);
-    lastResult={type:"clear",q,result};
+  const beforeHp=state.hp;
+  const beforeAttr=Number(state.attributes[q.attr]||0);
+  if(outcome==="clear") {
+    if(q.exp>0) result=addExp(q.exp*quantity,q.attr);
+    const attrDelta=Number(state.attributes[q.attr]||0)-beforeAttr;
+    logAction(`${q.name} CLEAR ×${quantity}`,result.final,{type:"normal",outcome:"clear",qid:q.id,attr:q.attr,attrDelta,hpDelta:0,quantity});
+    lastResult={type:"clear",q,result,quantity};
     saveState();
-    showReward(result.final?`+${result.final} EXP`:"QUEST CLEAR!");
+    showReward(result.final?`+${result.final} EXP`:`QUEST CLEAR ×${quantity}!`);
     if(result.newLevel>result.oldLevel) setTimeout(()=>showLevelUp(result.newLevel),350);
   }else{
     const oldLevel=state.level;
-    if(q.hpFail) state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail));
+    if(q.hpFail) state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail*quantity));
     if(q.penaltyExp && q.attr){
-      state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
+      state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp*quantity);
       syncTotalExp();
       recalcLevel();
     }
-    state.normalDone[q.id]="fail";
-    logAction(`${q.name} FAIL`,q.penaltyExp||0);
-    lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel,newLevel:state.level,m:expMultiplier()}};
+    const attrDelta=Number(state.attributes[q.attr]||0)-beforeAttr;
+    const hpDelta=state.hp-beforeHp;
+    logAction(`${q.name} FAIL ×${quantity}`,q.penaltyExp*quantity||0,{type:"normal",outcome:"fail",qid:q.id,attr:q.attr,attrDelta,hpDelta,quantity});
+    lastResult={type:"fail",q,quantity,result:{final:q.penaltyExp*quantity||0,oldLevel,newLevel:state.level,m:expMultiplier()}};
     saveState();
-    showReward(q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
+    showReward(q.penaltyExp?`${q.penaltyExp*quantity} EXP`:`HP -${q.hpFail*quantity||0}`);
   }
   render();
 }
@@ -298,86 +300,74 @@ function performQuest(q, outcome){
   const key=keyFor(q);
   if(state.dailyDone[key])return;
 
+  const beforeHp=state.hp;
+  const beforeAttr=Number(state.attributes[q.attr]||0);
+  const beforeStats=Number(state.stats.toeflPages||0);
+  const beforeStreak=state.streak;
+  const beforeLastDaily=state.lastDailyDate;
+  const beforeLastItem=clone(state._lastItemReward||null);
   let result={final:0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()};
 
-  if(outcome==="clear"){
+  if(outcome==="clear") {
     if(q.exp>0) result=addExp(q.exp,q.attr);
     if(q.id==="toefl")state.stats.toeflPages++;
-    logAction(`${q.name} CLEAR`,result.final);
     state.dailyDone[key]="clear";
     lastResult={type:"clear",q,result};
   }else{
     const oldLevel=state.level;
     if(q.hpFail) state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-q.hpFail));
-
     if(q.penaltyExp && q.attr){
       state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
       syncTotalExp();
       recalcLevel();
     }
-
-    logAction(`${q.name} FAIL`,q.penaltyExp||0);
     state.dailyDone[key]="fail";
-    lastResult={
-      type:"fail",
-      q,
-      result:{
-        final:q.penaltyExp||0,
-        oldLevel,
-        newLevel:state.level,
-        m:expMultiplier()
-      }
-    };
+    lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel,newLevel:state.level,m:expMultiplier()}};
   }
 
-  const streakChanged = updateStreak();
+  const streakChanged=updateStreak();
+  const attrDelta=Number(state.attributes[q.attr]||0)-beforeAttr;
+  const hpDelta=state.hp-beforeHp;
+  const statsDelta=Number(state.stats.toeflPages||0)-beforeStats;
+  const itemDelta=streakChanged && state._lastItemReward ? {id:state._lastItemReward.id,delta:1} : null;
+  logAction(`${q.name} ${outcome.toUpperCase()}`,outcome==="clear"?result.final:(q.penaltyExp||0),{
+    type:"daily",outcome,qid:q.id,key,attr:q.attr,attrDelta,hpDelta,statsDelta,
+    streakDelta:state.streak-beforeStreak,lastDailyBefore:beforeLastDaily,lastItemBefore:beforeLastItem,itemDelta
+  });
   saveState();
 
   if(outcome==="clear"){
-    showReward(result.final?`+${result.final} EXP`:"QUEST CLEAR!");
-    if(result.newLevel>result.oldLevel){
-      setTimeout(()=>showLevelUp(result.newLevel),350);
-    }
+    showReward(result.final?`+${result.final} EXP`:`QUEST CLEAR!`);
+    if(result.newLevel>result.oldLevel)setTimeout(()=>showLevelUp(result.newLevel),350);
   }else{
     showReward(q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
   }
-  if(streakChanged) setTimeout(()=>toast(`🔥 STREAK ${state.streak} DAYS!`),700);
-
+  if(streakChanged)setTimeout(()=>toast(`🔥 STREAK ${state.streak} DAYS!`),700);
   render();
 }
 
 function updateStreak(){
-  const current = today();
-  if(state.lastDailyDate === current) return false;
-
-  const daily = getDailyQuests();
-  // STREAK条件は「今日のデイリーを全部判定済み」かつ「全部CLEAR」。
-  // 1つでもFAILなら、その日はSTREAK対象外。
-  const allSelected = daily.length > 0 && daily.every(q => !!state.dailyDone[`${current}_${q.id}`]);
-  const allCleared = allSelected && daily.every(q => state.dailyDone[`${current}_${q.id}`] === "clear");
-  if(!allCleared) return false;
-
-  const prev = yesterday();
-  const prevCompleted = daily.every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
-
-  state.streak = prevCompleted ? state.streak + 1 : 1;
-  state.lastDailyDate = current;
-  const reward = grantRandomItem();
-  if(reward){
-    state._lastItemReward={id:reward.id,name:reward.name,icon:reward.icon,at:Date.now(),streak:state.streak};
-  }else{
-    state._lastItemReward=null;
-  }
+  const current=today();
+  if(state.lastDailyDate===current)return false;
+  const daily=getDailyQuests();
+  const allSelected=daily.length>0 && daily.every(q=>!!state.dailyDone[`${current}_${q.id}`]);
+  const allCleared=allSelected && daily.every(q=>state.dailyDone[`${current}_${q.id}`]==="clear");
+  if(!allCleared)return false;
+  const prev=yesterday();
+  const prevCompleted=daily.every(q=>state.dailyDone[`${prev}_${q.id}`]==="clear");
+  state.streak=prevCompleted?state.streak+1:1;
+  state.lastDailyDate=current;
+  const reward=grantRandomItem();
+  if(reward)state._lastItemReward={id:reward.id,name:reward.name,icon:reward.icon,at:Date.now(),streak:state.streak};
+  else state._lastItemReward=null;
   saveState();
-  if(reward){
-    setTimeout(()=>toast(`🎁 ITEM GET：${reward.icon} ${reward.name}`),700);
-  }
+  if(reward)setTimeout(()=>toast(`🎁 ITEM GET：${reward.icon} ${reward.name}`),700);
   return true;
 }
 
 function grantRandomItem(){
   const choices=getItemRewards().filter(i=>i.enabled!==false);
-  if(!choices.length) return null;
+  if(!choices.length)return null;
   const reward=choices[Math.floor(Math.random()*choices.length)];
   state.items[reward.id]=Math.max(0,Math.floor(Number(state.items[reward.id])||0))+1;
   return reward;
@@ -502,22 +492,21 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
   if(currentQuestTab==="normal"){
-    html+=`<div class="notice">通常クエストは1回判定型。デイリーSTREAKには影響しない。CLEAR / FAIL の表示は設定から選べる。</div>`;
+    html+=`<div class="notice">通常クエストは何回でもCLEARできます。やった回数を入力して、その回数分まとめて記録できます。デイリーSTREAKには影響しません。</div>`;
     for(const q of getNormalQuests()){
-      const status=state.normalDone[q.id]===true?"clear":state.normalDone[q.id];
-      const done=!!status;
       const mode=q.buttonMode||"clear";
-      const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}`:"");
+      const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}/回`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}/回`:"");
       const buttons=mode==="clear"?`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button>`:mode==="fail"?`<button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`:`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button><button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`;
-      html+=`<div class="quest-item ${status==="fail"?"failed":"good-quest"} ${done?"done":""}">
+      html+=`<div class="quest-item good-quest">
         <div class="quest-icon">${q.icon}</div>
-        <div>
+        <div class="quest-main-content">
           <div class="quest-kind">NORMAL QUEST</div>
           <div class="quest-name">${q.name}</div>
-          <div class="quest-meta">CLEAR: +${q.exp||0} EXP ／ 属性: ${attrLabel(q.attr)}${failInfo}</div>
+          <div class="quest-meta">CLEAR: +${q.exp||0} EXP/回 ／ 属性: ${attrLabel(q.attr)}${failInfo}</div>
         </div>
-        <div class="quest-actions">
-          ${done ? `<button class="${status==="fail"?"fail-btn":"clear-btn"}" disabled>${status==="fail"?"FAIL":"CLEAR"}</button>` : buttons}
+        <div class="quest-actions normal-repeat-actions">
+          <label class="qty-label">回数<input class="normal-qty" data-normal-qty="${q.id}" type="number" min="1" step="1" value="1"></label>
+          ${buttons}
         </div>
       </div>`;
     }
@@ -530,7 +519,7 @@ function renderQuest(){
   }else{
     for(const q of getDailyQuests()){
       const s=statusFor(q),done=!!s;
-      const reward=q.exp>0?`+${q.exp} EXP`:`成功報酬なし`;
+      const reward=q.exp>0?`+${q.exp} EXP`:`CLEAR`;
       const isAvoid=q.type==="avoid";
       const title=isAvoid?`今日${q.name.replace("しない","をしなかった")}`:q.name;
       html+=`<div class="quest-item ${isAvoid?"avoid-quest":"good-quest"} ${s==="clear"?"done":""} ${s==="fail"?"failed":""}">
@@ -548,7 +537,7 @@ function renderQuest(){
       </div>`
     }
   }
-  html+=`</section><section class="panel"><div class="notice">デイリークエストはCLEAR / FAILで判定。FAILするとHP減少・EXPペナルティが発生する。毎日の行動は1回だけ判定される。</div></section>`;
+  html+=`</section><section class="panel"><div class="notice">デイリークエストはCLEAR / FAILで1日1回判定。FAILするとHP減少・EXPペナルティが発生する。</div></section>`;
   return html
 }
 
@@ -603,7 +592,6 @@ function useItem(itemId){
 
 function renderMore(){
   return `<section class="panel"><div class="panel-title">MORE</div><div class="command-list">
-  <button class="command" data-more="achievements">🏆 ACHIEVEMENTS<small>実績を見る</small></button>
   <button class="command" data-more="options">⚙ OPTIONS<small>クエスト・ゲーム設定を管理する</small></button>
   <button class="command" data-more="logs">📜 LOG<small>直近48時間の行動ログ</small></button>
   </div></section>`
@@ -711,7 +699,7 @@ function bindEditorEvents(){
 }
 
 function renderOptions(){
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V23</span></div><div class="settings-list">
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS <span class="version-badge">V27</span></div><div class="settings-list">
   <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
   <div class="setting"><span>EXP設定</span><button data-open-exp-settings>編集する</button></div>
   <div class="setting"><span>HP設定</span><button data-open-hp-settings>編集する</button></div>
@@ -796,15 +784,56 @@ function renderDataSettings(){
 
 function renderLogs(){
   cleanupLogs();
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">LOG — LAST 48 HOURS</div>${state.logs.length?state.logs.slice().reverse().map(l=>`<div class="achievement"><div class="badge">•</div><div><div>${l.name}</div><div class="progress">${new Date(l.at).toLocaleString()} ／ ${l.exp>=0?"+":""}${l.exp} EXP</div></div></div>`).join(""):`<div class="notice">まだログがない。</div>`}</section>`
+  const rows=state.logs.slice().reverse().map(l=>`<div class="achievement log-row ${l.undone?"log-undone":""}">
+    <div class="badge">•</div><div class="log-main"><div>${escapeHtml(l.name)} ${l.undone?'<span class="disabled-badge">取り消し済み</span>':''}</div><div class="progress">${new Date(l.at).toLocaleString()} ／ ${l.exp>=0?"+":""}${l.exp} EXP</div></div>
+    ${l.undone?"":`<button class="small-btn danger log-undo-btn" data-undo-log="${l.id}">取り消す</button>`}
+  </div>`).join("");
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">LOG — LAST 48 HOURS</div><div class="notice">行動を間違えて記録した場合は「取り消す」で、その行動によるEXP・HP・STREAK・ITEMなどの変化を元に戻せます。</div>${rows||`<div class="notice">まだログがない。</div>`}</section>`;
+  document.querySelectorAll("[data-undo-log]").forEach(b=>b.addEventListener("click",()=>undoLog(b.dataset.undoLog)));
+}
+
+function undoLog(logId){
+  const log=state.logs.find(x=>x.id===logId);
+  if(!log||log.undone||!log.undo){toast("この行動は取り消せません");return}
+  if(!confirm(`「${log.name}」を取り消しますか？\nEXP・HP・STREAK・ITEMなどの変化を戻します。`))return;
+  const u=log.undo;
+  if(u.attr && u.attrDelta){state.attributes[u.attr]=Math.max(0,(Number(state.attributes[u.attr])||0)-Number(u.attrDelta));}
+  if(u.hpDelta){state.hp=Math.max(0,Math.min(Number(state.settings.hp.max)||100,state.hp-Number(u.hpDelta)));}
+  if(u.statsDelta){state.stats.toeflPages=Math.max(0,(Number(state.stats.toeflPages)||0)-Number(u.statsDelta));}
+  if(u.type==="daily") {
+    delete state.dailyDone[u.key];
+    // この行動より後にSTREAK報酬を確定させたログがある場合も、
+    // 「今日のデイリーが全部CLEARではない」状態に戻す。
+    const awardLog=state.logs.find(x=>!x.undone && x.id!==log.id && x.undo?.type==="daily" && x.undo?.streakDelta && x.undo?.key?.startsWith(today()+"_"));
+    if(u.streakDelta){
+      state.streak=Math.max(0,state.streak-Number(u.streakDelta));
+      state.lastDailyDate=u.lastDailyBefore||null;
+      if(u.itemDelta)state.items[u.itemDelta.id]=Math.max(0,(Number(state.items[u.itemDelta.id])||0)-Number(u.itemDelta.delta));
+      state._lastItemReward=u.lastItemBefore||null;
+    }else if(awardLog){
+      const au=awardLog.undo;
+      state.streak=Math.max(0,state.streak-Number(au.streakDelta||0));
+      state.lastDailyDate=au.lastDailyBefore||null;
+      if(au.itemDelta)state.items[au.itemDelta.id]=Math.max(0,(Number(state.items[au.itemDelta.id])||0)-Number(au.itemDelta.delta));
+      state._lastItemReward=au.lastItemBefore||null;
+      awardLog.undone=true;
+    }
+  }
+  syncTotalExp();
+  recalcLevel();
+  log.undone=true;
+  saveState();
+  toast("↩ 行動を取り消しました");
+  render();
+  renderLogs();
 }
 
 function bindEvents(){
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.go;lastResult=null;render()}));
   document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{currentQuestTab=b.dataset.tab;render()}));
   document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
-  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q,"clear")}));
-  document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
+  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalClear}"]`);if(q)performNormalQuest(q,"clear",input?.value||1)}));
+  document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalFail}"]`);if(q)performNormalQuest(q,"fail",input?.value||1)}));
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-use-item]").forEach(b=>b.addEventListener("click",()=>useItem(b.dataset.useItem)));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));

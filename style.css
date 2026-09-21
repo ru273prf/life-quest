@@ -121,3 +121,15 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 /* V25 ITEM USE */
 .item-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}.item-use-btn{border:2px solid var(--green);background:#10251b;color:var(--green);padding:7px 12px;cursor:pointer;font-size:11px}.item-use-btn:hover{background:#173823;border-color:#9ae8aa}.item-use-btn:active{transform:translateY(1px)}
 @media(max-width:560px){.item-actions{justify-content:flex-start}}
+
+/* V27 repeatable normal quests + undoable logs */
+.normal-repeat-actions{align-items:flex-end!important;flex-wrap:wrap!important}
+.qty-label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--muted);text-align:center}
+.normal-qty{width:58px;padding:8px 6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:inherit;text-align:center}
+.log-row{display:flex;align-items:center;gap:10px}
+.log-main{flex:1;min-width:0}
+.log-undo-btn{white-space:nowrap}
+.log-undone{opacity:.5}
+.disabled-badge{font-size:10px;border:1px solid var(--line);padding:2px 5px;margin-left:6px}
+.quest-main-content{flex:1;min-width:0}
+@media(max-width:650px){.normal-repeat-actions{width:100%;justify-content:flex-end}.normal-qty{width:54px}}
