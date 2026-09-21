@@ -805,12 +805,54 @@ function openItemForm(id=null){
 
 function renderDataSettings(){
   document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">DATA MANAGEMENT</div><div class="notice">LIFE QUESTの保存データをバックアップ・復元できます。バックアップはこの端末にJSONとして保存されます。</div>
-  <div class="data-actions"><button class="save-quest-btn" data-export-data>EXPORT JSON</button><label class="file-import-btn">IMPORT JSON<input id="import-data" type="file" accept="application/json,.json" hidden></label><button class="back-btn" data-clear-logs>LOGを消去</button><button class="danger-full" data-reset-all>RESET ALL DATA</button></div>
+  <div class="data-actions"><button class="save-quest-btn" data-export-data>EXPORT JSON</button><label class="file-import-btn">IMPORT JSON<input id="import-data" type="file" accept="application/json,.json" hidden></label><button class="back-btn" data-clear-logs>LOGを消去</button><button class="danger-full reset-long" data-reset-all>RESET ALL DATA <span class="reset-hint">LONG PRESS</span></button></div>
   <div class="notice">現在のデータ：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level} ／ STREAK ${state.streak} ／ ITEM ${Object.values(state.items||{}).reduce((a,b)=>a+(Number(b)||0),0)} ／ LOG ${state.logs.length}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
   document.querySelector("[data-export-data]").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`life-quest-backup-${today()}.json`;a.click();URL.revokeObjectURL(a.href);toast("BACKUP EXPORTED")});
   document.getElementById("import-data").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;try{const imported=JSON.parse(await f.text());if(!imported||typeof imported!=="object"||!imported.attributes)throw new Error("invalid");state={...clone(defaultState),...imported,settings:{...clone(defaultState.settings),...(imported.settings||{})}};normalizeState();saveState();lastResult=null;render();toast("DATA IMPORTED")}catch{toast("IMPORT FAILED")}});
   document.querySelector("[data-clear-logs]").addEventListener("click",()=>{state.logs=[];saveState();renderDataSettings();toast("LOG CLEARED")});
-  document.querySelector("[data-reset-all]").addEventListener("click",()=>{state=clone(defaultState);state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)};state.settings=clone(defaultState.settings);lastResult=null;saveState();render();toast("ALL DATA RESET")});
+  const resetBtn=document.querySelector("[data-reset-all]");
+  let resetPressTimer=null,resetTriggered=false;
+  const resetDuration=1200;
+  const resetStart=()=>{
+    if(resetPressTimer) return;
+    resetTriggered=false;
+    resetBtn.classList.add("is-pressing");
+    resetBtn.style.setProperty("--press-progress","0%");
+    const start=performance.now();
+    const tick=()=>{
+      if(!resetPressTimer) return;
+      const progress=Math.min(100,((performance.now()-start)/resetDuration)*100);
+      resetBtn.style.setProperty("--press-progress",progress+"%");
+      if(progress>=100){
+        resetPressTimer=null;
+        resetTriggered=true;
+        resetBtn.classList.remove("is-pressing");
+        resetBtn.style.setProperty("--press-progress","0%");
+        if(confirm("本当にすべてのデータをリセットしますか？")){
+          state=clone(defaultState);
+          state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)};
+          state.settings=clone(defaultState.settings);
+          lastResult=null;
+          saveState();
+          render();
+          toast("ALL DATA RESET");
+        }
+        return;
+      }
+      resetPressTimer=requestAnimationFrame(tick);
+    };
+    resetPressTimer=requestAnimationFrame(tick);
+  };
+  const resetCancel=()=>{
+    if(resetPressTimer){cancelAnimationFrame(resetPressTimer);resetPressTimer=null;}
+    resetBtn.classList.remove("is-pressing");
+    resetBtn.style.setProperty("--press-progress","0%");
+  };
+  resetBtn.addEventListener("pointerdown",resetStart);
+  resetBtn.addEventListener("pointerup",resetCancel);
+  resetBtn.addEventListener("pointerleave",resetCancel);
+  resetBtn.addEventListener("pointercancel",resetCancel);
+  resetBtn.addEventListener("contextmenu",e=>e.preventDefault());
   document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
 
