@@ -586,3 +586,22 @@ body{
 .attr-filter:hover{border-color:#fff;color:#fff;}
 .empty-filter{border:1px dashed #555;padding:18px;text-align:center;}
 @media(max-width:560px){.normal-attr-filters{grid-template-columns:repeat(2,1fr)}.v39-compact-hero .big-level{font-size:38px}}
+
+
+/* V40: keep STREAK only in the header; make level/status block compact and left-aligned */
+.v39-compact-hero{
+  padding:20px 28px!important;
+}
+.v39-full-info{
+  width:min(760px,100%)!important;
+  margin-left:0!important;
+  margin-right:auto!important;
+}
+.v39-compact-hero .big-level{
+  width:max-content!important;
+  margin:0 0 18px 0!important;
+  text-align:left!important;
+}
+.v39-compact-hero .stat-row{
+  max-width:760px!important;
+}

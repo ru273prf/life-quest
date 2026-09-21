@@ -516,7 +516,6 @@ function renderHome(){
       <div class="big-level">Lv.${state.level}</div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${state.totalExp.toLocaleString()} / ${levelThreshold(state.level+1).toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${Math.max(0,Math.min(100,state.totalExp/Math.max(1,levelThreshold(state.level+1))*100))}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
-      <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS　×${sm}</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div><div class="level-next">EXP MULTIPLIER ×${sm}${state.streak<250?` ／ NEXT ×${streakMultiplier(state.streak+1)} at ${[50,100,150,200,250].find(x=>x>state.streak)||250} DAYS`:''}</div></div>
     </div>
   </section>
   <section class="panel v35-status-panel"><div class="panel-title">STATUS <span></span></div>
