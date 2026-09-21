@@ -444,48 +444,65 @@ function streakRewardText(streak){
 }
 
 function heroSprite(){
-  return `<svg class="pixel-hero-svg fixed-hero" viewBox="0 0 128 128" aria-label="勇者" role="img" shape-rendering="crispEdges">
-    <!-- fixed monochrome pixel hero: helmet, cape, sword -->
-    <g fill="#f2f2f2">
-      <rect x="42" y="18" width="44" height="8"/>
-      <rect x="34" y="26" width="60" height="28"/>
-      <rect x="42" y="54" width="44" height="14"/>
-      <rect x="34" y="68" width="60" height="38"/>
-      <rect x="26" y="76" width="14" height="28"/>
-      <rect x="88" y="72" width="14" height="34"/>
-      <rect x="98" y="32" width="8" height="68"/>
-      <rect x="106" y="24" width="8" height="16"/>
-      <rect x="90" y="40" width="28" height="8"/>
-      <rect x="44" y="106" width="16" height="10"/>
-      <rect x="72" y="106" width="16" height="10"/>
+  return `<svg class="pixel-hero-svg fixed-hero hooded-hero" viewBox="0 0 160 160" aria-label="勇者" role="img" shape-rendering="crispEdges">
+    <!-- fixed monochrome hooded hero: cloak, sword, simple silhouette -->
+    <g fill="#f3f3f3">
+      <!-- hood -->
+      <rect x="52" y="20" width="48" height="8"/>
+      <rect x="44" y="28" width="64" height="16"/>
+      <rect x="36" y="36" width="72" height="24"/>
+      <rect x="44" y="52" width="56" height="16"/>
+      <!-- face opening -->
+      <rect x="56" y="40" width="32" height="20"/>
+      <!-- cloak/body -->
+      <rect x="44" y="68" width="56" height="12"/>
+      <rect x="36" y="80" width="72" height="36"/>
+      <rect x="28" y="88" width="16" height="28"/>
+      <rect x="100" y="84" width="12" height="32"/>
+      <!-- legs -->
+      <rect x="48" y="116" width="20" height="18"/>
+      <rect x="80" y="116" width="20" height="18"/>
+      <!-- sword -->
+      <rect x="112" y="52" width="8" height="58"/>
+      <rect x="120" y="36" width="8" height="18"/>
+      <rect x="128" y="28" width="8" height="12"/>
+      <rect x="104" y="56" width="28" height="8"/>
+      <rect x="108" y="104" width="18" height="8"/>
     </g>
-    <g fill="#0b0b0b">
-      <rect x="42" y="18" width="44" height="7"/>
-      <rect x="34" y="26" width="8" height="20"/><rect x="86" y="26" width="8" height="20"/>
-      <rect x="42" y="26" width="44" height="6"/>
-      <rect x="46" y="36" width="8" height="8"/><rect x="74" y="36" width="8" height="8"/>
-      <rect x="54" y="48" width="20" height="5"/>
-      <rect x="42" y="54" width="44" height="6"/>
-      <rect x="34" y="68" width="60" height="7"/>
-      <rect x="42" y="75" width="44" height="8"/>
-      <rect x="50" y="83" width="28" height="23"/>
-      <rect x="26" y="76" width="8" height="28"/>
-      <rect x="88" y="72" width="6" height="34"/>
-      <rect x="44" y="106" width="16" height="5"/><rect x="72" y="106" width="16" height="5"/>
-      <rect x="98" y="40" width="8" height="60"/>
-      <rect x="90" y="40" width="28" height="6"/>
-      <rect x="106" y="24" width="8" height="16"/>
+    <g fill="#0a0a0a">
+      <!-- hood outline -->
+      <rect x="52" y="20" width="48" height="6"/>
+      <rect x="44" y="28" width="8" height="28"/><rect x="100" y="28" width="8" height="28"/>
+      <rect x="52" y="28" width="48" height="6"/>
+      <!-- shadowed face -->
+      <rect x="56" y="40" width="32" height="6"/>
+      <rect x="56" y="46" width="8" height="14"/><rect x="80" y="46" width="8" height="14"/>
+      <rect x="64" y="54" width="16" height="6"/>
+      <!-- cloak folds -->
+      <rect x="44" y="68" width="56" height="7"/>
+      <rect x="36" y="80" width="10" height="36"/>
+      <rect x="90" y="80" width="18" height="36"/>
+      <rect x="28" y="88" width="8" height="28"/>
+      <rect x="48" y="94" width="42" height="8"/>
+      <!-- legs / boots -->
+      <rect x="48" y="116" width="8" height="18"/><rect x="60" y="128" width="8" height="6"/>
+      <rect x="80" y="116" width="8" height="18"/><rect x="92" y="128" width="8" height="6"/>
+      <!-- sword shadow -->
+      <rect x="112" y="52" width="8" height="58"/>
+      <rect x="120" y="36" width="8" height="18"/>
+      <rect x="128" y="28" width="8" height="12"/>
+      <rect x="104" y="56" width="28" height="6"/>
+      <rect x="108" y="104" width="18" height="6"/>
     </g>
-    <g fill="#777">
-      <rect x="54" y="27" width="20" height="4"/>
-      <rect x="42" y="60" width="44" height="4"/>
-      <rect x="34" y="82" width="10" height="22"/>
-      <rect x="78" y="82" width="10" height="22"/>
-      <rect x="98" y="48" width="5" height="38"/>
+    <g fill="#888">
+      <rect x="52" y="34" width="48" height="4"/>
+      <rect x="44" y="60" width="56" height="4"/>
+      <rect x="46" y="82" width="8" height="30"/>
+      <rect x="54" y="102" width="8" height="14"/>
+      <rect x="112" y="64" width="5" height="40"/>
     </g>
   </svg>`;
 }
-
 function heroStage(){
   return "勇者";
 }
@@ -523,7 +540,7 @@ function renderHome(){
   <section class="panel hero-panel">
     <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
     <div>
-      <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
+      <div class="hero-name">勇者</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
       <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>

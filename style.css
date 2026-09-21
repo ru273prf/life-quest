@@ -443,3 +443,23 @@ body{
 }
 .clear-btn:not(:disabled):hover{background:#173a22!important;border-color:#62ef89!important}
 .fail-btn:not(:disabled):hover{background:#43171a!important;border-color:#ff6870!important}
+
+/* V34: bold monochrome RPG typography + fixed hooded hero */
+.game-title,
+.panel-title,
+.hero-name,
+.big-level,
+.levelup-title,
+.levelup-level,
+.quest-title,
+.setting-title,
+.item-title,
+.section-title {
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow: 3px 3px 0 #000;
+}
+.hero-name{font-size:26px;line-height:1.1;margin-bottom:2px}
+.big-level{font-weight:900;letter-spacing:1px}
+.hooded-hero{width:190px;height:190px;image-rendering:pixelated;}
+.hero-sprite{display:grid;place-items:center}
