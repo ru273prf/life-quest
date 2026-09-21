@@ -51,7 +51,7 @@ let state = loadState();
 normalizeState();
 let currentScreen = "home";
 let currentQuestTab = "daily";
-let normalAttrFilter = "all";
+let questAttrFilter = "all";
 let lastResult = null;
 
 function ensureSettings(){
@@ -534,10 +534,10 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="daily"?"active":""}" data-tab="daily">デイリー</button>
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">限定</button></div>`;
+  const filters=["all","english","academic","human"];
+  html+=`<div class="normal-attr-filters quest-attr-filters"><button class="attr-filter ${questAttrFilter==="all"?"active":""}" data-quest-attr="all">ALL</button>${filters.slice(1).map(a=>`<button class="attr-filter ${questAttrFilter===a?"active":""}" data-quest-attr="${a}">${escapeHtml(attrLabel(a))}</button>`).join("")}</div>`;
   if(currentQuestTab==="normal"){
-    const filters=["all","english","academic","human"];
-    html+=`<div class="normal-attr-filters"><button class="attr-filter ${normalAttrFilter==="all"?"active":""}" data-normal-attr="all">ALL</button>${filters.slice(1).map(a=>`<button class="attr-filter ${normalAttrFilter===a?"active":""}" data-normal-attr="${a}">${escapeHtml(attrLabel(a))}</button>`).join("")}</div>`;
-    const visible=getNormalQuests().filter(q=>normalAttrFilter==="all"||q.attr===normalAttrFilter);
+    const visible=getNormalQuests().filter(q=>questAttrFilter==="all"||q.attr===questAttrFilter);
     if(!visible.length) html+=`<div class="notice empty-filter">この属性の通常クエストはありません。</div>`;
     for(const q of visible){
       const mode=q.buttonMode||"clear";
@@ -557,7 +557,9 @@ function renderQuest(){
       </div>`;
     }
   }else if(currentQuestTab==="long"){
-    for(const q of getLongQuests()){
+    const visible=getLongQuests().filter(q=>questAttrFilter==="all"||q.attr===questAttrFilter);
+    if(!visible.length) html+=`<div class="notice empty-filter">この属性の限定クエストはありません。</div>`;
+    for(const q of visible){
       const limitedState=state.limitedDone[q.id]||null;
       const done=limitedState==="clear";
       const failed=limitedState==="fail";
@@ -572,7 +574,9 @@ function renderQuest(){
       </div>`;
     }
   }else{
-    for(const q of getDailyQuests()){
+    const visible=getDailyQuests().filter(q=>questAttrFilter==="all"||q.attr===questAttrFilter);
+    if(!visible.length) html+=`<div class="notice empty-filter">この属性のデイリークエストはありません。</div>`;
+    for(const q of visible){
       const s=statusFor(q),done=!!s;
       const reward=q.exp>0?`+${q.exp} EXP`:`CLEAR`;
       const isAvoid=q.type==="avoid";
@@ -865,7 +869,7 @@ function undoLog(logId){
 function bindEvents(){
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.go;lastResult=null;render()}));
   document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{currentQuestTab=b.dataset.tab;render()}));
-  document.querySelectorAll("[data-normal-attr]").forEach(b=>b.addEventListener("click",()=>{normalAttrFilter=b.dataset.normalAttr;render()}));
+  document.querySelectorAll("[data-quest-attr]").forEach(b=>b.addEventListener("click",()=>{questAttrFilter=b.dataset.questAttr;render()}));
   document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
   document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalClear}"]`);if(q)performNormalQuest(q,"clear",input?.value||1)}));
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalFail}"]`);if(q)performNormalQuest(q,"fail",input?.value||1)}));
@@ -881,7 +885,7 @@ document.addEventListener("click",(event)=>{
     event.preventDefault();
     currentScreen = nav.dataset.screen || "home";
     currentQuestTab = "daily";
-    normalAttrFilter = "all";
+    questAttrFilter = "all";
     lastResult = null;
     render();
     window.scrollTo({top:0,behavior:"smooth"});

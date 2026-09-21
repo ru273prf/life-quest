@@ -605,3 +605,5 @@ body{
 .v39-compact-hero .stat-row{
   max-width:760px!important;
 }
+/* V41: unify attribute filters across Daily / Normal / Limited */
+.quest-attr-filters{margin-top:0}
