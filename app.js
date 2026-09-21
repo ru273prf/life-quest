@@ -521,7 +521,7 @@ function renderQuestForm(category, id=null){
       <label>アイコン<input id="quest-icon" value="${escapeAttr(q?.icon||"📜")}" maxlength="4"></label>
       ${!long?`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`:""}
       ${long?`<label>目標値<input id="quest-goal" type="number" min="1" value="${q?.goal||100}"></label><label>達成報酬EXP<input id="quest-reward" type="number" min="0" value="${q?.reward||0}"></label><label>進捗キー<input id="quest-key" value="${escapeAttr(q?.key||makeQuestId())}"></label>`:`<label>獲得EXP<input id="quest-exp" type="number" value="${q?.exp||0}"></label>`}
-      ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" value="${q?.penaltyExp||0}"></label>`:""}
+      ${!long?`<label>${daily?"デイリー":"通常"}種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" value="${q?.penaltyExp||0}"></label>`:""}
     </div>
     <div class="editor-actions"><button class="save-quest-btn" data-save-quest="${category}" data-save-id="${q?.id||""}">SAVE</button><button class="back-btn" data-back-quest-editor="${category}">CANCEL</button></div>
   </section>`;
@@ -560,7 +560,7 @@ function bindEditorEvents(){
     const name=document.getElementById("quest-name")?.value.trim(); if(!name){toast("クエスト名を入力してね");return}
     const q={id:id||makeQuestId(),name,icon:document.getElementById("quest-icon")?.value.trim()||"📜",attr:document.getElementById("quest-attr")?.value||"human"};
     if(c==="long") Object.assign(q,{goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),key:document.getElementById("quest-key").value.trim()||makeQuestId()});
-    else {q.exp=Number(document.getElementById("quest-exp").value)||0; if(c==="daily") Object.assign(q,{type:document.getElementById("quest-type").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:Number(document.getElementById("quest-penalty").value)||0});}
+    else {q.exp=Number(document.getElementById("quest-exp").value)||0; Object.assign(q,{type:document.getElementById("quest-type").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:Number(document.getElementById("quest-penalty").value)||0});}
     const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(x=>x.id===q.id); if(idx>=0) list[idx]=q; else list.push(q); saveState(); openQuestEditor(c); toast(id?"QUEST UPDATED":"QUEST ADDED");
   });
 }
