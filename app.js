@@ -42,7 +42,8 @@ function ensureQuestConfig(){
   if(!Array.isArray(state.questConfig.daily)) state.questConfig.daily=clone(defaultQuests);
   if(!Array.isArray(state.questConfig.normal)) state.questConfig.normal=clone(defaultNormalQuests);
   if(!Array.isArray(state.questConfig.long)) state.questConfig.long=clone(defaultLongQuests);
-  state.questConfig.daily=state.questConfig.daily.map(q=>({...q,type:q.type||"good"}));
+  state.questConfig.daily=state.questConfig.daily.map(q=>({...q,type:q.type||"good",buttonMode:q.buttonMode||"both"}));
+  state.questConfig.normal=state.questConfig.normal.map(q=>({...q,buttonMode:q.buttonMode||"clear"}));
 }
 function getDailyQuests(){ensureQuestConfig();return state.questConfig.daily}
 function getNormalQuests(){ensureQuestConfig();return state.questConfig.normal}
@@ -204,22 +205,34 @@ function cleanupLogs(){
 function keyFor(q){return `${today()}_${q.id}`}
 function statusFor(q){return state.dailyDone[keyFor(q)]||null}
 
-function performNormalQuest(q){
-  if(state.normalDone[q.id]) return;
-
-  const result=addExp(q.exp,q.attr);
-  state.normalDone[q.id]=true;
-  logAction(`${q.name} CLEAR`,result.final);
-  lastResult={type:"clear",q,result};
-  saveState();
-
-  showReward(`+${result.final} EXP`);
-  if(result.newLevel>result.oldLevel){
-    setTimeout(()=>showLevelUp(result.newLevel),350);
+function performNormalQuest(q,outcome){
+  const saved=state.normalDone[q.id];
+  if(saved) return;
+  let result={final:0,oldLevel:state.level,newLevel:state.level,m:expMultiplier()};
+  if(outcome==="clear"){
+    if(q.exp>0) result=addExp(q.exp,q.attr);
+    state.normalDone[q.id]="clear";
+    logAction(`${q.name} CLEAR`,result.final);
+    lastResult={type:"clear",q,result};
+    saveState();
+    showReward(result.final?`+${result.final} EXP`:"QUEST CLEAR!");
+    if(result.newLevel>result.oldLevel) setTimeout(()=>showLevelUp(result.newLevel),350);
+  }else{
+    const oldLevel=state.level;
+    if(q.hpFail) state.hp=Math.max(0,state.hp-q.hpFail);
+    if(q.penaltyExp && q.attr){
+      state.attributes[q.attr]=Math.max(0,(Number(state.attributes[q.attr])||0)+q.penaltyExp);
+      syncTotalExp();
+      recalcLevel();
+    }
+    state.normalDone[q.id]="fail";
+    logAction(`${q.name} FAIL`,q.penaltyExp||0);
+    lastResult={type:"fail",q,result:{final:q.penaltyExp||0,oldLevel,newLevel:state.level,m:expMultiplier()}};
+    saveState();
+    showReward(q.penaltyExp?`${q.penaltyExp} EXP`:`HP -${q.hpFail||0}`);
   }
   render();
 }
-
 function performQuest(q, outcome){
   const key=keyFor(q);
   if(state.dailyDone[key])return;
@@ -407,20 +420,22 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
   if(currentQuestTab==="normal"){
-    html+=`<div class="notice">通常クエストは1回クリア型。デイリーSTREAKには影響しない。</div>`;
+    html+=`<div class="notice">通常クエストは1回判定型。デイリーSTREAKには影響しない。CLEAR / FAIL の表示は設定から選べる。</div>`;
     for(const q of getNormalQuests()){
-      const done=!!state.normalDone[q.id];
-      html+=`<div class="quest-item good-quest ${done?"done":""}">
+      const status=state.normalDone[q.id]===true?"clear":state.normalDone[q.id];
+      const done=!!status;
+      const mode=q.buttonMode||"clear";
+      const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}`:"");
+      const buttons=mode==="clear"?`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button>`:mode==="fail"?`<button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`:`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button><button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`;
+      html+=`<div class="quest-item ${status==="fail"?"failed":"good-quest"} ${done?"done":""}">
         <div class="quest-icon">${q.icon}</div>
         <div>
           <div class="quest-kind">NORMAL QUEST</div>
           <div class="quest-name">${q.name}</div>
-          <div class="quest-meta">CLEAR: +${q.exp} EXP ／ 属性: ${q.attr==="english"?"英語力":"人間力"}</div>
+          <div class="quest-meta">CLEAR: +${q.exp||0} EXP ／ 属性: ${attrLabel(q.attr)}${failInfo}</div>
         </div>
         <div class="quest-actions">
-          ${done
-            ? `<button class="clear-btn" disabled>CLEAR</button>`
-            : `<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button>`}
+          ${done ? `<button class="${status==="fail"?"fail-btn":"clear-btn"}" disabled>${status==="fail"?"FAILED":"CLEAR"}</button>` : buttons}
         </div>
       </div>`;
     }
@@ -445,10 +460,8 @@ function renderQuest(){
         </div>
         <div class="quest-actions">
           ${done
-            ? `<button class="clear-btn" disabled>${s==="clear"?"CLEAR":"FAILED"}</button>`
-            : isAvoid
-              ? `<button class="clear-btn success-btn" data-clear="${q.id}">守った</button><button class="fail-btn" data-fail="${q.id}">やった</button>`
-              : `<button class="clear-btn" data-clear="${q.id}">CLEAR</button><button class="fail-btn" data-fail="${q.id}">FAIL</button>`}
+            ? `<button class="${s==="fail"?"fail-btn":"clear-btn"}" disabled>${s==="clear"?(isAvoid?"守った":"CLEAR"):(isAvoid?"やった":"FAILED")}</button>`
+            : (()=>{const mode=q.buttonMode||"both"; const clearLabel=isAvoid?"守った":"CLEAR"; const failLabel=isAvoid?"やった":"FAIL"; return mode==="clear"?`<button class="clear-btn ${isAvoid?"success-btn":""}" data-clear="${q.id}">${clearLabel}</button>`:mode==="fail"?`<button class="fail-btn" data-fail="${q.id}">${failLabel}</button>`:`<button class="clear-btn ${isAvoid?"success-btn":""}" data-clear="${q.id}">${clearLabel}</button><button class="fail-btn" data-fail="${q.id}">${failLabel}</button>`})()}
         </div>
       </div>`
     }
@@ -494,7 +507,9 @@ function renderMore(){
 function renderQuestEditor(category="daily"){
   const list=category==="daily"?getDailyQuests():category==="normal"?getNormalQuests():getLongQuests();
   const rows=list.map(q=>{
-    const extra=category==="daily" ? `${q.type==="avoid"?"守った/やった":"CLEAR/FAIL"} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP` : category==="normal" ? `${attrLabel(q.attr)} ／ +${q.exp||0} EXP` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
+    const modeLabel=(q.buttonMode||"clear")==="clear"?"CLEARのみ":(q.buttonMode||"clear")==="fail"?"FAILのみ":"CLEAR / FAIL";
+    const failLabel=(q.hpFail?`HP -${q.hpFail}`:"")+(q.penaltyExp?`${q.hpFail?" ／ ":""}EXP ${q.penaltyExp}`:"");
+    const extra=category==="daily" ? `${q.type==="avoid"?"守った/やった":"GOOD"} ／ ${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : category==="normal" ? `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
     return `<div class="quest-edit-row"><div><div class="quest-edit-name">${q.icon||"📜"} ${q.name}</div><div class="quest-meta">${extra}</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-quest="${q.id}" data-edit-category="${category}">編集</button><button class="small-btn danger" data-delete-quest="${q.id}" data-delete-category="${category}">削除</button></div></div>`
   }).join("");
   return `<section class="panel"><div class="panel-title">QUEST MANAGEMENT</div>
@@ -521,7 +536,8 @@ function renderQuestForm(category, id=null){
       <label>アイコン<input id="quest-icon" value="${escapeAttr(q?.icon||"📜")}" maxlength="4"></label>
       ${!long?`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`:""}
       ${long?`<label>目標値<input id="quest-goal" type="number" min="1" value="${q?.goal||100}"></label><label>達成報酬EXP<input id="quest-reward" type="number" min="0" value="${q?.reward||0}"></label><label>進捗キー<input id="quest-key" value="${escapeAttr(q?.key||makeQuestId())}"></label>`:`<label>獲得EXP<input id="quest-exp" type="number" value="${q?.exp||0}"></label>`}
-      ${!long?`<label>${daily?"デイリー":"通常"}種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" value="${q?.penaltyExp||0}"></label>`:""}
+      ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label>`:""}
+      ${!long?`<label>ボタン表示<select id="quest-button-mode"><option value="clear" ${(q?.buttonMode|| (daily?"both":"clear"))==="clear"?"selected":""}>CLEARのみ</option><option value="fail" ${q?.buttonMode==="fail"?"selected":""}>FAILのみ</option><option value="both" ${(q?.buttonMode|| (daily?"both":"clear"))==="both"?"selected":""}>CLEAR / FAIL</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" min="0" value="${Math.abs(Number(q?.penaltyExp)||0)}"></label>`:""}
     </div>
     <div class="editor-actions"><button class="save-quest-btn" data-save-quest="${category}" data-save-id="${q?.id||""}">SAVE</button><button class="back-btn" data-back-quest-editor="${category}">CANCEL</button></div>
   </section>`;
@@ -554,13 +570,15 @@ function bindEditorEvents(){
   }));
   document.querySelector("[data-back-options]")?.addEventListener("click",()=>renderOptions());
   document.querySelectorAll("[data-back-quest-editor]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.backQuestEditor)));
+  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q,"clear")}));
+  document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
   document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
   document.querySelector("[data-save-quest]")?.addEventListener("click",()=>{
     const c=document.querySelector("[data-save-quest]").dataset.saveQuest,id=document.querySelector("[data-save-quest]").dataset.saveId;
     const name=document.getElementById("quest-name")?.value.trim(); if(!name){toast("クエスト名を入力してね");return}
     const q={id:id||makeQuestId(),name,icon:document.getElementById("quest-icon")?.value.trim()||"📜",attr:document.getElementById("quest-attr")?.value||"human"};
     if(c==="long") Object.assign(q,{goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),key:document.getElementById("quest-key").value.trim()||makeQuestId()});
-    else {q.exp=Number(document.getElementById("quest-exp").value)||0; Object.assign(q,{type:document.getElementById("quest-type").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:Number(document.getElementById("quest-penalty").value)||0});}
+    else {q.exp=Math.max(0,Number(document.getElementById("quest-exp").value)||0); Object.assign(q,{buttonMode:document.getElementById("quest-button-mode").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:-Math.max(0,Number(document.getElementById("quest-penalty").value)||0)}); if(c==="daily") q.type=document.getElementById("quest-type").value; else q.type="good";}
     const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(x=>x.id===q.id); if(idx>=0) list[idx]=q; else list.push(q); saveState(); openQuestEditor(c); toast(id?"QUEST UPDATED":"QUEST ADDED");
   });
 }
