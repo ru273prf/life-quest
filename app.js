@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V25";
+const APP_VERSION = "V26";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -806,6 +806,7 @@ function bindEvents(){
   document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q,"clear")}));
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);if(q)performNormalQuest(q,"fail")}));
   document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
+  document.querySelectorAll("[data-use-item]").forEach(b=>b.addEventListener("click",()=>useItem(b.dataset.useItem)));
   document.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.more==="achievements")renderAchievements();if(b.dataset.more==="options")renderOptions();if(b.dataset.more==="logs")renderLogs()}));
 }
 document.addEventListener("click",(event)=>{
