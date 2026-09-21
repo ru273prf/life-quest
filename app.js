@@ -295,11 +295,15 @@ function updateStreak(){
   const current = today();
   if(state.lastDailyDate === current) return false;
 
-  const allCompleted = getDailyQuests().every(q => state.dailyDone[`${current}_${q.id}`]);
-  if(!allCompleted) return false;
+  const daily = getDailyQuests();
+  // STREAK条件は「今日のデイリーを全部判定済み」かつ「全部CLEAR」。
+  // 1つでもFAILなら、その日はSTREAK対象外。
+  const allSelected = daily.length > 0 && daily.every(q => !!state.dailyDone[`${current}_${q.id}`]);
+  const allCleared = allSelected && daily.every(q => state.dailyDone[`${current}_${q.id}`] === "clear");
+  if(!allCleared) return false;
 
   const prev = yesterday();
-  const prevCompleted = getDailyQuests().every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
+  const prevCompleted = daily.every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
 
   state.streak = prevCompleted ? state.streak + 1 : 1;
   state.lastDailyDate = current;
@@ -441,7 +445,7 @@ function renderQuest(){
           <div class="quest-meta">CLEAR: +${q.exp||0} EXP ／ 属性: ${attrLabel(q.attr)}${failInfo}</div>
         </div>
         <div class="quest-actions">
-          ${done ? `<button class="${status==="fail"?"fail-btn":"clear-btn"}" disabled>${status==="fail"?"FAILED":"CLEAR"}</button>` : buttons}
+          ${done ? `<button class="${status==="fail"?"fail-btn":"clear-btn"}" disabled>${status==="fail"?"FAIL":"CLEAR"}</button>` : buttons}
         </div>
       </div>`;
     }
@@ -466,13 +470,13 @@ function renderQuest(){
         </div>
         <div class="quest-actions">
           ${done
-            ? `<button class="${s==="fail"?"fail-btn":"clear-btn"}" disabled>${s==="clear"?(isAvoid?"守った":"CLEAR"):(isAvoid?"やった":"FAILED")}</button>`
-            : (()=>{const mode=q.buttonMode||"both"; const clearLabel=isAvoid?"守った":"CLEAR"; const failLabel=isAvoid?"やった":"FAIL"; return mode==="clear"?`<button class="clear-btn ${isAvoid?"success-btn":""}" data-clear="${q.id}">${clearLabel}</button>`:mode==="fail"?`<button class="fail-btn" data-fail="${q.id}">${failLabel}</button>`:`<button class="clear-btn ${isAvoid?"success-btn":""}" data-clear="${q.id}">${clearLabel}</button><button class="fail-btn" data-fail="${q.id}">${failLabel}</button>`})()}
+            ? `<button class="${s==="fail"?"fail-btn":"clear-btn"}" disabled>${s==="clear"?"CLEAR":"FAIL"}</button>`
+            : (()=>{const mode=q.buttonMode||"both"; return mode==="clear"?`<button class="clear-btn" data-clear="${q.id}">CLEAR</button>`:mode==="fail"?`<button class="fail-btn" data-fail="${q.id}">FAIL</button>`:`<button class="clear-btn" data-clear="${q.id}">CLEAR</button><button class="fail-btn" data-fail="${q.id}">FAIL</button>`})()}
         </div>
       </div>`
     }
   }
-  html+=`</section><section class="panel"><div class="notice">習慣系は「守った」か「やった」を記録。FAILするとHP減少・EXPペナルティが発生する。毎日の行動は1回だけ判定される。</div></section>`;
+  html+=`</section><section class="panel"><div class="notice">デイリークエストはCLEAR / FAILで判定。FAILするとHP減少・EXPペナルティが発生する。毎日の行動は1回だけ判定される。</div></section>`;
   return html
 }
 
@@ -515,7 +519,7 @@ function renderQuestEditor(category="daily"){
   const rows=list.map(q=>{
     const modeLabel=(q.buttonMode||"clear")==="clear"?"CLEARのみ":(q.buttonMode||"clear")==="fail"?"FAILのみ":"CLEAR / FAIL";
     const failLabel=(q.hpFail?`HP -${q.hpFail}`:"")+(q.penaltyExp?`${q.hpFail?" ／ ":""}EXP ${q.penaltyExp}`:"");
-    const extra=category==="daily" ? `${q.type==="avoid"?"守った/やった":"GOOD"} ／ ${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : category==="normal" ? `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
+    const extra=category==="daily" ? `CLEAR / FAIL ／ ${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : category==="normal" ? `${modeLabel} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP${failLabel?` ／ FAIL: ${failLabel}`:""}` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
     return `<div class="quest-edit-row"><div><div class="quest-edit-name">${q.icon||"📜"} ${q.name}</div><div class="quest-meta">${extra}</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-quest="${q.id}" data-edit-category="${category}">編集</button><button class="small-btn danger" data-delete-quest="${q.id}" data-delete-category="${category}">削除</button></div></div>`
   }).join("");
   return `<section class="panel"><div class="panel-title">QUEST MANAGEMENT</div>
