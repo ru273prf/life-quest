@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V32";
+const APP_VERSION = "V39";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -51,6 +51,7 @@ let state = loadState();
 normalizeState();
 let currentScreen = "home";
 let currentQuestTab = "daily";
+let normalAttrFilter = "all";
 let lastResult = null;
 
 function ensureSettings(){
@@ -84,7 +85,7 @@ function ensureQuestConfig(){
 function getDailyQuests(){ensureQuestConfig();return state.questConfig.daily}
 function getNormalQuests(){ensureQuestConfig();return state.questConfig.normal}
 function getLongQuests(){ensureQuestConfig();return state.questConfig.long}
-function questCategoryLabel(c){return c==="daily"?"DAILY":c==="normal"?"NORMAL":"LONG"}
+function questCategoryLabel(c){return c==="daily"?"DAILY":c==="normal"?"NORMAL":"LIMITED"}
 function makeQuestId(){return "custom_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
 function clone(x){return JSON.parse(JSON.stringify(x))}
@@ -415,6 +416,7 @@ function render(){
   normalizeState();
   document.getElementById("currentDate").textContent=formatDate();
   document.getElementById("headerStreak").textContent=state.streak;
+  const hsm=document.getElementById("headerStreakMultiplier"); if(hsm) hsm.textContent=streakMultiplier(state.streak);
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===currentScreen));
   const map={home:renderHome,quest:renderQuest,item:renderItem,more:renderMore};
   if(!map[currentScreen]) currentScreen="home";
@@ -507,15 +509,14 @@ function renderHome(){
     ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label],
     ["human",getAttrConfig("human").icon,getAttrConfig("human").label]
   ];
+  const sm=streakMultiplier(state.streak);
   return `
-  <section class="panel hero-panel v35-hero-panel">
-    <div class="hero-art v35-art">${heroScene()}</div>
-    <div class="hero-info">
-      <div class="hero-name">勇者</div>
+  <section class="panel hero-panel v39-compact-hero">
+    <div class="hero-info v39-full-info">
       <div class="big-level">Lv.${state.level}</div>
-      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
+      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${state.totalExp.toLocaleString()} / ${levelThreshold(state.level+1).toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${Math.max(0,Math.min(100,state.totalExp/Math.max(1,levelThreshold(state.level+1))*100))}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
       <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
-      <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
+      <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS　×${sm}</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div><div class="level-next">EXP MULTIPLIER ×${sm}${state.streak<250?` ／ NEXT ×${streakMultiplier(state.streak+1)} at ${[50,100,150,200,250].find(x=>x>state.streak)||250} DAYS`:''}</div></div>
     </div>
   </section>
   <section class="panel v35-status-panel"><div class="panel-title">STATUS <span></span></div>
@@ -535,7 +536,11 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">限定</button></div>`;
   if(currentQuestTab==="normal"){
-    for(const q of getNormalQuests()){
+    const filters=["all","english","academic","human"];
+    html+=`<div class="normal-attr-filters"><button class="attr-filter ${normalAttrFilter==="all"?"active":""}" data-normal-attr="all">ALL</button>${filters.slice(1).map(a=>`<button class="attr-filter ${normalAttrFilter===a?"active":""}" data-normal-attr="${a}">${escapeHtml(attrLabel(a))}</button>`).join("")}</div>`;
+    const visible=getNormalQuests().filter(q=>normalAttrFilter==="all"||q.attr===normalAttrFilter);
+    if(!visible.length) html+=`<div class="notice empty-filter">この属性の通常クエストはありません。</div>`;
+    for(const q of visible){
       const mode=q.buttonMode||"clear";
       const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}/回`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}/回`:"");
       const buttons=mode==="clear"?`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button>`:mode==="fail"?`<button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`:`<button class="clear-btn" data-normal-clear="${q.id}">CLEAR</button><button class="fail-btn" data-normal-fail="${q.id}">FAIL</button>`;
@@ -861,6 +866,7 @@ function undoLog(logId){
 function bindEvents(){
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.go;lastResult=null;render()}));
   document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{currentQuestTab=b.dataset.tab;render()}));
+  document.querySelectorAll("[data-normal-attr]").forEach(b=>b.addEventListener("click",()=>{normalAttrFilter=b.dataset.normalAttr;render()}));
   document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
   document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalClear}"]`);if(q)performNormalQuest(q,"clear",input?.value||1)}));
   document.querySelectorAll("[data-normal-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalFail);const input=document.querySelector(`[data-normal-qty="${b.dataset.normalFail}"]`);if(q)performNormalQuest(q,"fail",input?.value||1)}));
@@ -876,6 +882,7 @@ document.addEventListener("click",(event)=>{
     event.preventDefault();
     currentScreen = nav.dataset.screen || "home";
     currentQuestTab = "daily";
+    normalAttrFilter = "all";
     lastResult = null;
     render();
     window.scrollTo({top:0,behavior:"smooth"});
