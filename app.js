@@ -444,31 +444,52 @@ function streakRewardText(streak){
 }
 
 function heroSprite(){
-  return `<svg class="pixel-hero-svg fixed-hero" viewBox="0 0 96 112" aria-label="HERO" role="img" shape-rendering="crispEdges">
-    <g fill="#f4f4f4">
-      <rect x="30" y="10" width="36" height="8"/><rect x="22" y="18" width="52" height="8"/><rect x="18" y="26" width="60" height="8"/>
-      <rect x="26" y="34" width="44" height="22"/><rect x="22" y="56" width="52" height="8"/><rect x="18" y="64" width="34" height="30"/>
-      <rect x="54" y="64" width="20" height="30"/><rect x="24" y="94" width="18" height="10"/><rect x="54" y="94" width="18" height="10"/>
-      <rect x="76" y="38" width="6" height="50"/><rect x="70" y="32" width="18" height="8"/><rect x="82" y="28" width="6" height="12"/>
+  return `<svg class="pixel-hero-svg fixed-hero" viewBox="0 0 128 128" aria-label="勇者" role="img" shape-rendering="crispEdges">
+    <!-- fixed monochrome pixel hero: helmet, cape, sword -->
+    <g fill="#f2f2f2">
+      <rect x="42" y="18" width="44" height="8"/>
+      <rect x="34" y="26" width="60" height="28"/>
+      <rect x="42" y="54" width="44" height="14"/>
+      <rect x="34" y="68" width="60" height="38"/>
+      <rect x="26" y="76" width="14" height="28"/>
+      <rect x="88" y="72" width="14" height="34"/>
+      <rect x="98" y="32" width="8" height="68"/>
+      <rect x="106" y="24" width="8" height="16"/>
+      <rect x="90" y="40" width="28" height="8"/>
+      <rect x="44" y="106" width="16" height="10"/>
+      <rect x="72" y="106" width="16" height="10"/>
     </g>
     <g fill="#0b0b0b">
-      <rect x="26" y="18" width="44" height="6"/><rect x="22" y="26" width="8" height="8"/><rect x="66" y="26" width="8" height="8"/>
-      <rect x="34" y="34" width="28" height="5"/><rect x="30" y="42" width="7" height="7"/><rect x="59" y="42" width="7" height="7"/>
-      <rect x="40" y="51" width="16" height="4"/><rect x="18" y="60" width="56" height="7"/><rect x="24" y="67" width="8" height="27"/>
-      <rect x="42" y="67" width="12" height="27"/><rect x="64" y="67" width="10" height="27"/><rect x="24" y="94" width="18" height="5"/>
-      <rect x="54" y="94" width="18" height="5"/><rect x="76" y="46" width="6" height="42"/><rect x="70" y="40" width="18" height="5"/>
+      <rect x="42" y="18" width="44" height="7"/>
+      <rect x="34" y="26" width="8" height="20"/><rect x="86" y="26" width="8" height="20"/>
+      <rect x="42" y="26" width="44" height="6"/>
+      <rect x="46" y="36" width="8" height="8"/><rect x="74" y="36" width="8" height="8"/>
+      <rect x="54" y="48" width="20" height="5"/>
+      <rect x="42" y="54" width="44" height="6"/>
+      <rect x="34" y="68" width="60" height="7"/>
+      <rect x="42" y="75" width="44" height="8"/>
+      <rect x="50" y="83" width="28" height="23"/>
+      <rect x="26" y="76" width="8" height="28"/>
+      <rect x="88" y="72" width="6" height="34"/>
+      <rect x="44" y="106" width="16" height="5"/><rect x="72" y="106" width="16" height="5"/>
+      <rect x="98" y="40" width="8" height="60"/>
+      <rect x="90" y="40" width="28" height="6"/>
+      <rect x="106" y="24" width="8" height="16"/>
     </g>
-    <g fill="#777"><rect x="34" y="25" width="28" height="4"/><rect x="32" y="57" width="32" height="4"/><rect x="78" y="52" width="4" height="22"/></g>
+    <g fill="#777">
+      <rect x="54" y="27" width="20" height="4"/>
+      <rect x="42" y="60" width="44" height="4"/>
+      <rect x="34" y="82" width="10" height="22"/>
+      <rect x="78" y="82" width="10" height="22"/>
+      <rect x="98" y="48" width="5" height="38"/>
+    </g>
   </svg>`;
 }
 
 function heroStage(){
-  if(state.level>=20) return "LEGENDARY HERO";
-  if(state.level>=10) return "KNIGHT";
-  if(state.level>=5) return "ADVENTURER";
-  if(state.level>=3) return "APPRENTICE";
-  return "NOVICE";
+  return "勇者";
 }
+
 function showReward(text){
   const el=document.createElement("div");
   el.className="reward-flash";

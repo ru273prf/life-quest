@@ -429,3 +429,17 @@ body{
 .long-clear-btn.charging{background:#ddd!important;color:#111!important;border-color:#fff!important}
 .long-clear-btn.charging:after{content:"";position:absolute;left:0;bottom:0;height:4px;width:100%;background:#111;animation:longPressCharge .8s linear forwards}
 @keyframes longPressCharge{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+
+/* V33: CLEAR / FAIL are intentionally color-coded for readability. */
+.clear-btn,.clear-btn.success-btn{
+  border-color:#42d66f!important;
+  background:#102818!important;
+  color:#7dff9d!important;
+}
+.fail-btn{
+  border-color:#ff4d57!important;
+  background:#2a1012!important;
+  color:#ff858b!important;
+}
+.clear-btn:not(:disabled):hover{background:#173a22!important;border-color:#62ef89!important}
+.fail-btn:not(:disabled):hover{background:#43171a!important;border-color:#ff6870!important}
