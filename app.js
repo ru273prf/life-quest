@@ -3,10 +3,10 @@ const STORAGE_KEY = "lifeQuest_v2";
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
   attributes: {english:0, academic:0, human:0},
-  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}
+  dailyDone: {}, normalDone: {}, logs: [], purchased: [], stats:{toeflPages:0,studyHours:0}, questConfig:null
 };
 
-const quests = [
+const defaultQuests = [
   {id:"toefl",name:"TOEFLを1ページ進める",icon:"📖",exp:5,attr:"english",type:"good"},
   {id:"university",name:"大学の課題を進める",icon:"🎓",exp:1,attr:"academic",type:"good"},
   {id:"train",name:"電車で勉強する",icon:"🚃",exp:3,attr:"academic",type:"good"},
@@ -15,12 +15,12 @@ const quests = [
   {id:"late",name:"2時以降に寝ない",icon:"🌙",exp:0,attr:"human",type:"avoid",hpFail:5,penaltyExp:-5}
 ];
 
-const normalQuests = [
+const defaultNormalQuests = [
   {id:"english1",name:"えいご①",icon:"📖",exp:100,attr:"english"},
   {id:"human1",name:"にんげんりょく①",icon:"⚔️",exp:200,attr:"human"}
 ];
 
-const longQuests = [
+const defaultLongQuests = [
   {id:"toefl100",name:"TOEFLを100ページ進める",icon:"📚",goal:100,reward:200,key:"toeflPages"},
   {id:"study100",name:"勉強時間100時間",icon:"⏱️",goal:100,reward:500,key:"studyHours"}
 ];
@@ -36,6 +36,20 @@ normalizeState();
 let currentScreen = "home";
 let currentQuestTab = "daily";
 let lastResult = null;
+
+function ensureQuestConfig(){
+  if(!state.questConfig || typeof state.questConfig!=="object") state.questConfig={};
+  if(!Array.isArray(state.questConfig.daily)) state.questConfig.daily=clone(defaultQuests);
+  if(!Array.isArray(state.questConfig.normal)) state.questConfig.normal=clone(defaultNormalQuests);
+  if(!Array.isArray(state.questConfig.long)) state.questConfig.long=clone(defaultLongQuests);
+  state.questConfig.daily=state.questConfig.daily.map(q=>({...q,type:q.type||"good"}));
+}
+function getDailyQuests(){ensureQuestConfig();return state.questConfig.daily}
+function getNormalQuests(){ensureQuestConfig();return state.questConfig.normal}
+function getLongQuests(){ensureQuestConfig();return state.questConfig.long}
+function attrLabel(a){return a==="english"?"英語力":a==="academic"?"学力":"人間力"}
+function questCategoryLabel(c){return c==="daily"?"DAILY":c==="normal"?"NORMAL":"LONG"}
+function makeQuestId(){return "custom_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function loadState(){
@@ -62,11 +76,17 @@ function loadState(){
       };
     }
 
+    const cfg=saved.questConfig || {
+      daily:clone(defaultQuests),
+      normal:clone(defaultNormalQuests),
+      long:clone(defaultLongQuests)
+    };
     return {
       ...clone(defaultState),
       ...saved,
       attributes:attrs,
-      stats:{...defaultState.stats,...(saved.stats||{})}
+      stats:{...defaultState.stats,...(saved.stats||{})},
+      questConfig:cfg
     };
   }catch{
     return clone(defaultState)
@@ -102,6 +122,7 @@ function normalizeState(){
   state.streak=Math.max(0,Number(state.streak)||0);
 
   state.lastDailyDate=state.lastDailyDate||null;
+  ensureQuestConfig();
 }
 
 function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
@@ -255,11 +276,11 @@ function updateStreak(){
   const current = today();
   if(state.lastDailyDate === current) return false;
 
-  const allCompleted = quests.every(q => state.dailyDone[`${current}_${q.id}`]);
+  const allCompleted = getDailyQuests().every(q => state.dailyDone[`${current}_${q.id}`]);
   if(!allCompleted) return false;
 
   const prev = yesterday();
-  const prevCompleted = quests.every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
+  const prevCompleted = getDailyQuests().every(q => state.dailyDone[`${prev}_${q.id}`] === "clear");
 
   state.streak = prevCompleted ? state.streak + 1 : 1;
   state.lastDailyDate = current;
@@ -387,7 +408,7 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
   if(currentQuestTab==="normal"){
     html+=`<div class="notice">通常クエストは1回クリア型。デイリーSTREAKには影響しない。</div>`;
-    for(const q of normalQuests){
+    for(const q of getNormalQuests()){
       const done=!!state.normalDone[q.id];
       html+=`<div class="quest-item good-quest ${done?"done":""}">
         <div class="quest-icon">${q.icon}</div>
@@ -404,13 +425,13 @@ function renderQuest(){
       </div>`;
     }
   }else if(currentQuestTab==="long"){
-    for(const q of longQuests){
+    for(const q of getLongQuests()){
       const value=state.stats[q.key]||0;
       const pct=Math.min(100,value/q.goal*100);
       html+=`<div class="quest-item"><div class="quest-icon">${q.icon}</div><div><div class="quest-name">${q.name}</div><div class="quest-meta">進捗 ${value} / ${q.goal} ／ REWARD +${q.reward} EXP</div><div class="bar"><div class="fill exp-fill" style="width:${pct}%"></div></div></div><div class="progress">${Math.round(pct)}%</div></div>`
     }
   }else{
-    for(const q of quests){
+    for(const q of getDailyQuests()){
       const s=statusFor(q),done=!!s;
       const reward=q.exp>0?`+${q.exp} EXP`:`成功報酬なし`;
       const isAvoid=q.type==="avoid";
@@ -465,35 +486,82 @@ function renderShop(){
 function renderMore(){
   return `<section class="panel"><div class="panel-title">MORE</div><div class="command-list">
   <button class="command" data-more="achievements">🏆 ACHIEVEMENTS<small>実績を見る</small></button>
-  <button class="command" data-more="options">⚙ OPTIONS<small>管理・編集エリア</small></button>
+  <button class="command" data-more="options">⚙ OPTIONS<small>クエスト・ゲーム設定を管理する</small></button>
   <button class="command" data-more="logs">📜 LOG<small>直近48時間の行動ログ</small></button>
   </div></section>`
 }
 
-function renderAchievements(){
-  const a=[["👑","First Step","初めてEXPを獲得",state.totalExp>0,"CLEAR"],["🔥","7 DAYS","STREAK 7日",state.streak>=7,`${Math.min(7,state.streak)} / 7`],["⭐","1,000 EXP","TOTAL EXP 1,000",state.totalExp>=1000,`${Math.min(1000,state.totalExp)} / 1000`],["💎","10,000 EXP","TOTAL EXP 10,000",state.totalExp>=10000,`${Math.min(10000,state.totalExp)} / 10000`],["🏆","STREAK 50","STREAK 50日",state.streak>=50,`${Math.min(50,state.streak)} / 50`]];
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">ACHIEVEMENTS</div>${a.map(x=>`<div class="achievement ${x[3]?"":"locked"}"><div class="badge">${x[0]}</div><div><div>${x[1]}</div><div class="progress">${x[2]} ／ ${x[4]}</div></div></div>`).join("")}</section>`
+function renderQuestEditor(category="daily"){
+  const list=category==="daily"?getDailyQuests():category==="normal"?getNormalQuests():getLongQuests();
+  const rows=list.map(q=>{
+    const extra=category==="daily" ? `${q.type==="avoid"?"守った/やった":"CLEAR/FAIL"} ／ ${attrLabel(q.attr)} ／ +${q.exp||0} EXP` : category==="normal" ? `${attrLabel(q.attr)} ／ +${q.exp||0} EXP` : `${q.goal||0} 目標 ／ +${q.reward||0} EXP`;
+    return `<div class="quest-edit-row"><div><div class="quest-edit-name">${q.icon||"📜"} ${q.name}</div><div class="quest-meta">${extra}</div></div><div class="quest-edit-actions"><button class="small-btn" data-edit-quest="${q.id}" data-edit-category="${category}">編集</button><button class="small-btn danger" data-delete-quest="${q.id}" data-delete-category="${category}">削除</button></div></div>`
+  }).join("");
+  return `<section class="panel"><div class="panel-title">QUEST MANAGEMENT</div>
+    <div class="notice">ここだけでクエストを追加・編集・削除できます。ゲーム画面には編集項目を置きません。</div>
+    <div class="quest-tabs editor-tabs">
+      <button class="tab ${category==="daily"?"active":""}" data-editor-tab="daily">デイリー</button>
+      <button class="tab ${category==="normal"?"active":""}" data-editor-tab="normal">通常</button>
+      <button class="tab ${category==="long"?"active":""}" data-editor-tab="long">長期</button>
+    </div>
+    <button class="add-quest-btn" data-new-quest="${category}">＋ NEW QUEST</button>
+    <div class="quest-editor-list">${rows||`<div class="notice">まだクエストがありません。</div>`}</div>
+    <button class="back-btn" data-back-options>← OPTIONSに戻る</button>
+  </section>`;
 }
 
+function renderQuestForm(category, id=null){
+  const list=category==="daily"?getDailyQuests():category==="normal"?getNormalQuests():getLongQuests();
+  const q=id?list.find(x=>x.id===id):null;
+  const daily=category==="daily", long=category==="long";
+  const type=q?.type||"good";
+  return `<section class="panel"><div class="panel-title">${q?"EDIT QUEST":"NEW QUEST"} ／ ${questCategoryLabel(category)}</div>
+    <div class="field-grid">
+      <label>クエスト名<input id="quest-name" value="${escapeAttr(q?.name||"")}" placeholder="例：英語を30分勉強する"></label>
+      <label>アイコン<input id="quest-icon" value="${escapeAttr(q?.icon||"📜")}" maxlength="4"></label>
+      ${!long?`<label>属性<select id="quest-attr"><option value="english" ${q?.attr==="english"?"selected":""}>英語力</option><option value="academic" ${q?.attr==="academic"?"selected":""}>学力</option><option value="human" ${q?.attr==="human"?"selected":""}>人間力</option></select></label>`:""}
+      ${long?`<label>目標値<input id="quest-goal" type="number" min="1" value="${q?.goal||100}"></label><label>達成報酬EXP<input id="quest-reward" type="number" min="0" value="${q?.reward||0}"></label><label>進捗キー<input id="quest-key" value="${escapeAttr(q?.key||makeQuestId())}"></label>`:`<label>獲得EXP<input id="quest-exp" type="number" value="${q?.exp||0}"></label>`}
+      ${daily?`<label>デイリー種別<select id="quest-type"><option value="good" ${type==="good"?"selected":""}>GOOD（CLEAR / FAIL）</option><option value="avoid" ${type==="avoid"?"selected":""}>AVOID（守った / やった）</option></select></label><label>FAIL時 HP減少<input id="quest-hp" type="number" min="0" value="${q?.hpFail||0}"></label><label>FAIL時 EXPペナルティ<input id="quest-penalty" type="number" value="${q?.penaltyExp||0}"></label>`:""}
+    </div>
+    <div class="editor-actions"><button class="save-quest-btn" data-save-quest="${category}" data-save-id="${q?.id||""}">SAVE</button><button class="back-btn" data-back-quest-editor="${category}">CANCEL</button></div>
+  </section>`;
+}
+function escapeAttr(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function renderOptions(){
   document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">OPTIONS</div><div class="settings-list">
-  <div class="setting"><span>クエスト設定</span><button disabled>次期実装</button></div>
+  <div class="setting"><span>クエスト設定</span><button data-open-quest-editor>編集する</button></div>
   <div class="setting"><span>EXP設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>HP設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>属性設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>ショップ設定</span><button disabled>次期実装</button></div>
   <div class="setting"><span>データ管理</span><button data-reset>RESET DATA</button></div>
   </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level}</div></section>
-  <section class="panel"><div class="notice">OPTIONSは通常のゲーム画面と分離する管理エリア。編集機能は仕様確定後に追加する。</div></section>`;
+  <section class="panel"><div class="notice">QUEST MANAGEMENTでは、デイリー・通常・長期のクエストを追加、編集、削除できます。</div></section>`;
   document.querySelector("[data-reset]")?.addEventListener("click",()=>{
-    localStorage.removeItem(STORAGE_KEY);
-    state=clone(defaultState);
-    lastResult=null;
-    currentQuestTab="daily";
-    saveState();
-    render();
-    setTimeout(()=>toast("DATA RESET — Lv.1 / EXP 0 / HP 100"),50);
-  })
+    localStorage.removeItem(STORAGE_KEY); state=clone(defaultState); state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)}; lastResult=null; currentQuestTab="daily"; saveState(); render(); setTimeout(()=>toast("DATA RESET — Lv.1 / EXP 0 / HP 100"),50);
+  });
+}
+function openQuestEditor(category="daily"){document.getElementById("screen").innerHTML=renderQuestEditor(category);bindEditorEvents()}
+function openQuestForm(category,id=null){document.getElementById("screen").innerHTML=renderQuestForm(category,id);bindEditorEvents()}
+function bindEditorEvents(){
+  document.querySelectorAll("[data-editor-tab]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.editorTab)));
+  document.querySelectorAll("[data-new-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.newQuest)));
+  document.querySelectorAll("[data-edit-quest]").forEach(b=>b.addEventListener("click",()=>openQuestForm(b.dataset.editCategory,b.dataset.editQuest)));
+  document.querySelectorAll("[data-delete-quest]").forEach(b=>b.addEventListener("click",()=>{
+    const c=b.dataset.deleteCategory,id=b.dataset.deleteQuest; const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(q=>q.id===id); if(idx<0)return;
+    list.splice(idx,1); if(c==="daily"){delete state.dailyDone[`${today()}_${id}`]} else if(c==="normal"){delete state.normalDone[id]}; saveState(); openQuestEditor(c); toast("QUEST DELETED");
+  }));
+  document.querySelector("[data-back-options]")?.addEventListener("click",()=>renderOptions());
+  document.querySelectorAll("[data-back-quest-editor]").forEach(b=>b.addEventListener("click",()=>openQuestEditor(b.dataset.backQuestEditor)));
+  document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
+  document.querySelector("[data-save-quest]")?.addEventListener("click",()=>{
+    const c=document.querySelector("[data-save-quest]").dataset.saveQuest,id=document.querySelector("[data-save-quest]").dataset.saveId;
+    const name=document.getElementById("quest-name")?.value.trim(); if(!name){toast("クエスト名を入力してね");return}
+    const q={id:id||makeQuestId(),name,icon:document.getElementById("quest-icon")?.value.trim()||"📜",attr:document.getElementById("quest-attr")?.value||"human"};
+    if(c==="long") Object.assign(q,{goal:Math.max(1,Number(document.getElementById("quest-goal").value)||100),reward:Math.max(0,Number(document.getElementById("quest-reward").value)||0),key:document.getElementById("quest-key").value.trim()||makeQuestId()});
+    else {q.exp=Number(document.getElementById("quest-exp").value)||0; if(c==="daily") Object.assign(q,{type:document.getElementById("quest-type").value,hpFail:Math.max(0,Number(document.getElementById("quest-hp").value)||0),penaltyExp:Number(document.getElementById("quest-penalty").value)||0});}
+    const list=c==="daily"?getDailyQuests():c==="normal"?getNormalQuests():getLongQuests(); const idx=list.findIndex(x=>x.id===q.id); if(idx>=0) list[idx]=q; else list.push(q); saveState(); openQuestEditor(c); toast(id?"QUEST UPDATED":"QUEST ADDED");
+  });
 }
 
 function renderLogs(){
@@ -504,9 +572,9 @@ function renderLogs(){
 function bindEvents(){
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{currentScreen=b.dataset.go;lastResult=null;render()}));
   document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{currentQuestTab=b.dataset.tab;render()}));
-  document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=quests.find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
-  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=normalQuests.find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q)}));
-  document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=quests.find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
+  document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.clear);if(q)performQuest(q,"clear")}));
+  document.querySelectorAll("[data-normal-clear]").forEach(b=>b.addEventListener("click",()=>{const q=getNormalQuests().find(x=>x.id===b.dataset.normalClear);if(q)performNormalQuest(q)}));
+  document.querySelectorAll("[data-fail]").forEach(b=>b.addEventListener("click",()=>{const q=getDailyQuests().find(x=>x.id===b.dataset.fail);if(q)performQuest(q,"fail")}));
   document.querySelectorAll("[data-buy]").forEach(b=>b.addEventListener("click",()=>{
     const i=shops.find(x=>x.id===b.dataset.buy);if(!i||state.totalExp<i.price)return;
     let remain=i.price;

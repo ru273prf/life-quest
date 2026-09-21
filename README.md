@@ -96,3 +96,13 @@ Supabase接続、クエスト編集UI、ピクセル勇者、演出、ログの�
 - 「えいご①」「にんげんりょく①」のCLEARボタンにクリックイベントを正しく接続
 - 通常クエストをCLEARすると属性EXP・TOTAL EXP・Lvが更新される
 - キャッシュ対策としてapp.js/style.cssをV14に更新
+
+
+## V15 — QUEST MANAGEMENT
+- MORE → OPTIONS → クエスト設定を実装
+- デイリー / 通常 / 長期のクエストを追加・編集・削除
+- クエスト名、アイコン、属性、EXPを編集可能
+- デイリーはGOOD / AVOID、FAIL時HP減少、EXPペナルティを設定可能
+- 通常クエストは1回クリア型を維持
+- 設定はlocalStorageのquestConfigに保存
+- ゲーム画面には編集UIを置かず、OPTIONSに管理機能を分離
