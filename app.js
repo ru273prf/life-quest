@@ -379,7 +379,7 @@ function render(){
   document.getElementById("currentDate").textContent=formatDate();
   document.getElementById("headerStreak").textContent=state.streak;
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===currentScreen));
-  const map={home:renderHome,quest:renderQuest,status:renderStatus,item:renderItem,more:renderMore};
+  const map={home:renderHome,quest:renderQuest,item:renderItem,more:renderMore};
   if(!map[currentScreen]) currentScreen="home";
   try{
     document.getElementById("screen").innerHTML=map[currentScreen]();
@@ -443,30 +443,35 @@ function showLevelUp(level){
 
 function renderHome(){
   const progress=levelProgress();
-  const next=levelThreshold(state.level+1);
   const m=expMultiplier();
+  const attrs=[
+    ["english",getAttrConfig("english").icon,getAttrConfig("english").label,"var(--blue)"],
+    ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label,"var(--green)"],
+    ["human",getAttrConfig("human").icon,getAttrConfig("human").label,"var(--gold)"]
+  ];
   return `
   <section class="panel hero-panel">
     <div class="hero-art"><div class="hero-sprite">${heroSprite()}</div></div>
     <div>
       <div class="hero-name">HERO</div><div class="big-level">Lv.${state.level}</div><div class="hero-stage">${heroStage()}</div>
-      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVELまで ${progress.remaining.toLocaleString()} EXP</div></div>
-      <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / 100</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
+      <div class="stat-row"><div class="stat-label"><span>TOTAL EXP</span><span>${progress.current.toLocaleString()} / ${progress.need.toLocaleString()}</span></div><div class="bar"><div class="fill exp-fill" style="width:${progress.pct}%"></div></div><div class="level-next">NEXT LEVEL ${progress.remaining.toLocaleString()} EXP</div></div>
+      <div class="stat-row"><div class="stat-label"><span>HP</span><span>${state.hp} / ${state.settings.hp.max}</span></div><div class="bar"><div class="fill hp-fill" style="width:${Math.max(0,Math.min(100,state.hp/state.settings.hp.max*100))}%"></div></div></div>
       <div class="stat-row"><div class="stat-label"><span>STREAK</span><span>🔥 ${state.streak} DAYS</span></div><div class="bar"><div class="fill streak-fill" style="width:${Math.min(100,state.streak/2.5)}%"></div></div></div>
     </div>
   </section>
-  <section class="panel"><div class="panel-title">TODAY'S STATUS</div>
-    <div class="notice">HP ${state.hp>=100?"GOOD":state.hp>=50?"CAUTION":"DANGER"} ／ EXP倍率 <span class="multiplier">×${m.hp}</span> ／ STREAK倍率 <span class="multiplier">×${m.streak}</span> ／ TOTAL <span class="multiplier">×${m.total}</span></div>
-    <div class="notice" style="margin-top:6px">英語力 ${state.attributes.english.toLocaleString()} ／ 学力 ${state.attributes.academic.toLocaleString()} ／ 人間力 ${state.attributes.human.toLocaleString()} ／ TOTAL ${state.totalExp.toLocaleString()}</div>
+  <section class="panel"><div class="panel-title">STATUS</div>
+    <div class="attr-grid">${attrs.map(([k,i,n,c])=>`
+      <div class="attr-card">
+        <div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div>
+        <div class="attr-level">Lv.${attrLevel(state.attributes[k])}</div>
+        <div class="attr-bar"><div class="attr-fill" style="width:${Math.max(0,state.attributes[k]%100)}%;background:${c}"></div></div>
+      </div>`).join("")}</div>
+    <div class="status-total">TOTAL EXP ${state.totalExp.toLocaleString()} ／ EXP倍率 ×${m.total}</div>
   </section>
-  <section class="panel"><div class="panel-title">🔥 STREAK REWARD</div>
+  <section class="panel"><div class="panel-title">🔥 STREAK</div>
     <div class="streak-card">
       <div class="streak-fire">🔥</div>
-      <div>
-        <div class="streak-number">${state.streak} DAY STREAK</div>
-        <div class="streak-next">${streakRewardText(state.streak)}</div>
-        <div class="mini-progress"><div style="width:${state.streak>=250?100:(state.streak%50)/50*100}%"></div></div>
-      </div>
+      <div><div class="streak-number">${state.streak} DAY STREAK</div><div class="streak-next">${streakRewardText(state.streak)}</div><div class="mini-progress"><div style="width:${state.streak>=250?100:(state.streak%50)/50*100}%"></div></div></div>
       <div class="multiplier">×${streakMultiplier(state.streak)}</div>
     </div>
     <div class="reward-list">
@@ -477,13 +482,7 @@ function renderHome(){
       <div class="reward-row"><span>250 DAYS</span><span>×10 EXP MAX</span></div>
     </div>
   </section>
-  ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="notice">${lastResult.q.name}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}
-  <section class="panel"><div class="panel-title">COMMAND</div><div class="command-list">
-    <button class="command" data-go="quest">▶ QUEST<small>今日の行動を記録する</small></button>
-    <button class="command" data-go="status">▶ STATUS<small>属性EXPと成長を見る</small></button>
-    <button class="command" data-go="item">▶ ITEM<small>STREAKで獲得したアイテム</small></button>
-    <button class="command" data-go="more">▶ MORE<small>実績・設定・ログ</small></button>
-  </div></section>`
+  ${lastResult?`<section class="panel result-box"><div class="exp-pop">${lastResult.type==="clear"?(lastResult.result.final?`+${lastResult.result.final} EXP`:"QUEST CLEAR!"):(lastResult.result.final?`${lastResult.result.final} EXP`:`HP -${lastResult.q.hpFail||0}`)}</div><div class="quest-meta">${escapeHtml(lastResult.q.name)}</div>${lastResult.result.newLevel>lastResult.result.oldLevel?`<div class="multiplier">⚔ LEVEL UP! Lv.${lastResult.result.newLevel}</div>`:""}</section>`:""}`
 }
 
 function renderQuest(){
@@ -492,7 +491,6 @@ function renderQuest(){
   <button class="tab ${currentQuestTab==="normal"?"active":""}" data-tab="normal">通常</button>
   <button class="tab ${currentQuestTab==="long"?"active":""}" data-tab="long">長期</button></div>`;
   if(currentQuestTab==="normal"){
-    html+=`<div class="notice">通常クエストは何回でもCLEARできます。やった回数を入力して、その回数分まとめて記録できます。デイリーSTREAKには影響しません。</div>`;
     for(const q of getNormalQuests()){
       const mode=q.buttonMode||"clear";
       const failInfo=(q.hpFail?` ／ FAIL: HP -${q.hpFail}/回`:"")+(q.penaltyExp?` ／ FAIL: EXP ${q.penaltyExp}/回`:"");
@@ -537,29 +535,8 @@ function renderQuest(){
       </div>`
     }
   }
-  html+=`</section><section class="panel"><div class="notice">デイリークエストはCLEAR / FAILで1日1回判定。FAILするとHP減少・EXPペナルティが発生する。</div></section>`;
+  html+=`</section>`;
   return html
-}
-
-function renderStatus(){
-  const attrs=[
-    ["english",getAttrConfig("english").icon,getAttrConfig("english").label,getAttrConfig("english").description,"var(--blue)"],
-    ["academic",getAttrConfig("academic").icon,getAttrConfig("academic").label,getAttrConfig("academic").description,"var(--green)"],
-    ["human",getAttrConfig("human").icon,getAttrConfig("human").label,getAttrConfig("human").description,"var(--gold)"]
-  ];
-  return `<section class="panel"><div class="panel-title">STATUS</div>
-    <div class="hero-name">Lv.${state.level} 勇者 ${heroSprite()}</div>
-    <div class="notice">TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp}/${state.settings.hp.max} ／ 🔥 STREAK ${state.streak}</div>
-  </section>
-  <section class="panel"><div class="panel-title">属性EXP</div>
-    <div class="attr-grid">${attrs.map(([k,i,n,d,c])=>`
-      <div class="attr-card">
-        <div class="attr-head"><span>${i} ${n}</span><span>${state.attributes[k].toLocaleString()} EXP</span></div>
-        <div class="attr-level">Lv.${attrLevel(state.attributes[k])}</div>
-        <div class="notice" style="font-size:10px;margin:4px 0">${d}</div>
-        <div class="attr-bar"><div class="attr-fill" style="width:${Math.max(0,state.attributes[k]%100)}%;background:${c}"></div></div>
-      </div>`).join("")}</div>
-  </section>`
 }
 
 function renderItem(){
@@ -567,10 +544,9 @@ function renderItem(){
   const owned=rewards.filter(i=>(state.items[i.id]||0)>0);
   const last=state._lastItemReward;
   const html=`<section class="panel"><div class="panel-title">ITEM</div>
-  <div class="notice">🔥 STREAKが1増えるたび、設定された候補からランダムで1個もらえる。</div>
   ${last?`<div class="item-get-card"><div class="item-get-title">🎁 LAST ITEM GET</div><div class="item-get-main">${last.icon} ${escapeHtml(last.name)}</div><div class="quest-meta">STREAK ${last.streak} で獲得</div></div>`:""}
   <div class="section-title">所持アイテム</div>
-  ${owned.length?owned.map(i=>`<div class="item-row"><div class="item-main"><span class="item-icon">${i.icon}</span><div><div class="item-name">${escapeHtml(i.name)}</div><div class="quest-meta">${escapeHtml(i.description||"STREAK報酬アイテム")}</div></div></div><div class="item-actions"><div class="item-count">×${state.items[i.id]||0}</div><button class="item-use-btn" data-use-item="${i.id}">使う</button></div></div>`).join(""):`<div class="notice">まだアイテムを持っていない。まずは今日のデイリーを全部CLEARしてSTREAKを1増やそう🔥</div>`}
+  ${owned.length?owned.map(i=>`<div class="item-row"><div class="item-main"><span class="item-icon">${i.icon}</span><div><div class="item-name">${escapeHtml(i.name)}</div><div class="quest-meta">${escapeHtml(i.description||"")}</div></div></div><div class="item-actions"><div class="item-count">×${state.items[i.id]||0}</div><button class="item-use-btn" data-use-item="${i.id}">使う</button></div></div>`).join(""):`<div class="empty-state">NO ITEMS</div>`}
   <div class="section-title">現在の抽選候補</div>
   ${rewards.filter(i=>i.enabled!==false).map(i=>`<div class="reward-choice">${i.icon} ${escapeHtml(i.name)}</div>`).join("")||`<div class="notice">抽選候補が設定されていません。</div>`}
   </section>`;
@@ -592,8 +568,8 @@ function useItem(itemId){
 
 function renderMore(){
   return `<section class="panel"><div class="panel-title">MORE</div><div class="command-list">
-  <button class="command" data-more="options">⚙ OPTIONS<small>クエスト・ゲーム設定を管理する</small></button>
-  <button class="command" data-more="logs">📜 LOG<small>直近48時間の行動ログ</small></button>
+  <button class="command" data-more="options">⚙ OPTIONS</button>
+  <button class="command" data-more="logs">📜 LOG</button>
   </div></section>`
 }
 
