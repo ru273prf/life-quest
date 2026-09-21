@@ -537,6 +537,7 @@ function renderOptions(){
   <div class="setting"><span>データ管理</span><button data-reset>RESET DATA</button></div>
   </div></section><section class="panel"><div class="notice">CURRENT DATA：TOTAL EXP ${state.totalExp.toLocaleString()} ／ HP ${state.hp} ／ Lv.${state.level}</div></section>
   <section class="panel"><div class="notice">QUEST MANAGEMENTでは、デイリー・通常・長期のクエストを追加、編集、削除できます。</div></section>`;
+  document.querySelector("[data-open-quest-editor]")?.addEventListener("click",()=>openQuestEditor("daily"));
   document.querySelector("[data-reset]")?.addEventListener("click",()=>{
     localStorage.removeItem(STORAGE_KEY); state=clone(defaultState); state.questConfig={daily:clone(defaultQuests),normal:clone(defaultNormalQuests),long:clone(defaultLongQuests)}; lastResult=null; currentQuestTab="daily"; saveState(); render(); setTimeout(()=>toast("DATA RESET — Lv.1 / EXP 0 / HP 100"),50);
   });
