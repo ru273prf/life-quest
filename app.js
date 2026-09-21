@@ -445,64 +445,25 @@ function streakRewardText(streak){
 
 function heroSprite(){
   return `<svg class="pixel-hero-svg fixed-hero hooded-hero" viewBox="0 0 160 160" aria-label="勇者" role="img" shape-rendering="crispEdges">
-    <!-- fixed monochrome hooded hero: cloak, sword, simple silhouette -->
-    <g fill="#f3f3f3">
-      <!-- hood -->
-      <rect x="52" y="20" width="48" height="8"/>
-      <rect x="44" y="28" width="64" height="16"/>
-      <rect x="36" y="36" width="72" height="24"/>
-      <rect x="44" y="52" width="56" height="16"/>
-      <!-- face opening -->
-      <rect x="56" y="40" width="32" height="20"/>
-      <!-- cloak/body -->
-      <rect x="44" y="68" width="56" height="12"/>
-      <rect x="36" y="80" width="72" height="36"/>
-      <rect x="28" y="88" width="16" height="28"/>
-      <rect x="100" y="84" width="12" height="32"/>
-      <!-- legs -->
-      <rect x="48" y="116" width="20" height="18"/>
-      <rect x="80" y="116" width="20" height="18"/>
-      <!-- sword -->
-      <rect x="112" y="52" width="8" height="58"/>
-      <rect x="120" y="36" width="8" height="18"/>
-      <rect x="128" y="28" width="8" height="12"/>
-      <rect x="104" y="56" width="28" height="8"/>
-      <rect x="108" y="104" width="18" height="8"/>
+    <g fill="#f2f2f2">
+      <polygon points="48,24 72,12 96,24 108,44 100,72 84,84 56,84 40,68 36,44"/>
+      <polygon points="50,72 92,72 112,94 108,126 92,126 84,112 76,136 58,136 52,114 40,128 28,128 32,92"/>
+      <polygon points="108,92 114,92 140,38 136,34 130,38"/>
+      <rect x="100" y="88" width="28" height="8"/><rect x="112" y="94" width="8" height="22"/>
+      <rect x="52" y="128" width="18" height="12"/><rect x="82" y="128" width="18" height="12"/>
     </g>
     <g fill="#0a0a0a">
-      <!-- hood outline -->
-      <rect x="52" y="20" width="48" height="6"/>
-      <rect x="44" y="28" width="8" height="28"/><rect x="100" y="28" width="8" height="28"/>
-      <rect x="52" y="28" width="48" height="6"/>
-      <!-- shadowed face -->
-      <rect x="56" y="40" width="32" height="6"/>
-      <rect x="56" y="46" width="8" height="14"/><rect x="80" y="46" width="8" height="14"/>
-      <rect x="64" y="54" width="16" height="6"/>
-      <!-- cloak folds -->
-      <rect x="44" y="68" width="56" height="7"/>
-      <rect x="36" y="80" width="10" height="36"/>
-      <rect x="90" y="80" width="18" height="36"/>
-      <rect x="28" y="88" width="8" height="28"/>
-      <rect x="48" y="94" width="42" height="8"/>
-      <!-- legs / boots -->
-      <rect x="48" y="116" width="8" height="18"/><rect x="60" y="128" width="8" height="6"/>
-      <rect x="80" y="116" width="8" height="18"/><rect x="92" y="128" width="8" height="6"/>
-      <!-- sword shadow -->
-      <rect x="112" y="52" width="8" height="58"/>
-      <rect x="120" y="36" width="8" height="18"/>
-      <rect x="128" y="28" width="8" height="12"/>
-      <rect x="104" y="56" width="28" height="6"/>
-      <rect x="108" y="104" width="18" height="6"/>
+      <polygon points="56,38 72,28 90,36 94,58 82,72 58,68 50,56"/>
+      <rect x="62" y="52" width="8" height="6"/><rect x="82" y="52" width="8" height="6"/>
+      <rect x="48" y="28" width="48" height="7"/><rect x="40" y="40" width="8" height="28"/><rect x="96" y="40" width="8" height="28"/>
+      <polygon points="42,78 56,78 48,116 34,124 36,94"/><polygon points="84,78 100,82 104,118 92,124 82,108"/>
+      <rect x="58" y="90" width="8" height="28"/><rect x="74" y="82" width="8" height="34"/>
+      <rect x="104" y="88" width="28" height="7"/><rect x="112" y="94" width="8" height="22"/><rect x="132" y="38" width="8" height="14"/>
     </g>
-    <g fill="#888">
-      <rect x="52" y="34" width="48" height="4"/>
-      <rect x="44" y="60" width="56" height="4"/>
-      <rect x="46" y="82" width="8" height="30"/>
-      <rect x="54" y="102" width="8" height="14"/>
-      <rect x="112" y="64" width="5" height="40"/>
-    </g>
+    <g fill="#888"><rect x="52" y="34" width="40" height="4"/><rect x="48" y="70" width="44" height="5"/><rect x="48" y="82" width="8" height="28"/><rect x="92" y="84" width="7" height="28"/><rect x="116" y="52" width="5" height="35"/></g>
   </svg>`;
 }
+
 function heroStage(){
   return "勇者";
 }
@@ -536,8 +497,6 @@ function heroScene(){
     <div class="scene-castle"><i></i><i></i><i></i><b></b><b></b><b></b></div>
     <div class="scene-ground"></div>
     <div class="scene-hero">${heroSprite()}</div>
-    <div class="scene-copy"><strong>LIFE<br>IS A QUEST.</strong><span>—</span></div>
-    <div class="scene-levelup">LEVEL UP.<br>A BETTER YOU.</div>
   </div>`;
 }
 
