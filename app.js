@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V44";
+const APP_VERSION = "V45";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,

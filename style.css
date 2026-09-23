@@ -614,3 +614,16 @@ body{
 .danger-full.reset-long::before{content:"";position:absolute;inset:0;width:var(--press-progress,0%);background:rgba(255,70,70,.16);pointer-events:none;transition:none;}
 .danger-full.reset-long .reset-hint{position:relative;margin-left:8px;font-size:10px;letter-spacing:.08em;opacity:.65;}
 .danger-full.reset-long.is-pressing{border-color:#ff5c63;box-shadow:0 0 0 2px rgba(255,92,99,.12) inset;}
+
+
+/* V45: mobile editing without viewport zoom */
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+@media(max-width:560px){
+  .field-grid input,
+  .field-grid select{
+    font-size:16px!important;
+  }
+}
