@@ -1,13 +1,13 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V45";
+const APP_VERSION = "V46";
 
 const defaultState = {
-  totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
+  totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null, lastHpRecoveryDate: null,
   attributes: {english:0, academic:0, human:0},
   dailyDone: {}, normalDone: {}, limitedDone: {}, logs: [], purchased: [], items: {}, stats:{toeflPages:0,studyHours:0}, questConfig:null,
   settings:{
     exp:{levelBase:100,levelStep:50,streakMultipliers:{50:2,100:4,150:6,200:8,250:10}},
-    hp:{max:100,highThreshold:100,midThreshold:50,highMultiplier:1,midMultiplier:0.5,lowMultiplier:0.25},
+    hp:{max:100,highThreshold:100,midThreshold:50,highMultiplier:1,midMultiplier:0.5,lowMultiplier:0.25,recoveryPerDay:0},
     attributes:{
       english:{label:"英語力",icon:"📖",description:"TOEFL・英語学習"},
       academic:{label:"学力",icon:"🎓",description:"大学の理系科目・課題"},
@@ -415,9 +415,26 @@ function grantRandomItem(){
   return reward;
 }
 
+function applyDailyHpRecovery(){
+  const h=state.settings.hp;
+  const current=today();
+  if(state.lastHpRecoveryDate===current)return;
+  if(!state.lastHpRecoveryDate){
+    state.lastHpRecoveryDate=current;
+    return;
+  }
+  const prev=new Date(`${state.lastHpRecoveryDate}T00:00:00`);
+  const now=new Date(`${current}T00:00:00`);
+  const days=Math.max(1,Math.floor((now-prev)/86400000));
+  const amount=Math.max(0,Number(h.recoveryPerDay)||0)*days;
+  if(amount>0)state.hp=Math.min(Number(h.max)||100,state.hp+amount);
+  state.lastHpRecoveryDate=current;
+}
+
 function render(){
   cleanupLogs();
   normalizeState();
+  applyDailyHpRecovery();
   document.getElementById("currentDate").textContent=formatDate();
   document.getElementById("headerStreak").textContent=state.streak;
   const hsm=document.getElementById("headerStreakMultiplier"); if(hsm) hsm.textContent=streakMultiplier(state.streak);
@@ -776,9 +793,9 @@ function renderExpSettings(){
 function renderHpSettings(){
   const h=state.settings.hp;
   document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">HP SETTINGS</div><div class="notice">HPの最大値と、HPによるEXP倍率を設定します。</div>
-  <div class="field-grid"><label>最大HP<input id="hp-max" type="number" min="1" value="${h.max}"></label><label>通常倍率の境界HP<input id="hp-high" type="number" min="0" value="${h.highThreshold}"></label><label>警戒倍率の境界HP<input id="hp-mid" type="number" min="0" value="${h.midThreshold}"></label><label>通常時EXP倍率<input id="hp-m1" type="number" min="0" step="0.1" value="${h.highMultiplier}"></label><label>警戒時EXP倍率<input id="hp-m2" type="number" min="0" step="0.1" value="${h.midMultiplier}"></label><label>危険時EXP倍率<input id="hp-m3" type="number" min="0" step="0.1" value="${h.lowMultiplier}"></label></div>
+  <div class="field-grid"><label>最大HP<input id="hp-max" type="number" min="1" value="${h.max}"></label><label>1日あたりHP回復量<input id="hp-recovery" type="number" min="0" step="1" value="${h.recoveryPerDay||0}"></label><label>通常倍率の境界HP<input id="hp-high" type="number" min="0" value="${h.highThreshold}"></label><label>警戒倍率の境界HP<input id="hp-mid" type="number" min="0" value="${h.midThreshold}"></label><label>通常時EXP倍率<input id="hp-m1" type="number" min="0" step="0.1" value="${h.highMultiplier}"></label><label>警戒時EXP倍率<input id="hp-m2" type="number" min="0" step="0.1" value="${h.midMultiplier}"></label><label>危険時EXP倍率<input id="hp-m3" type="number" min="0" step="0.1" value="${h.lowMultiplier}"></label></div>
   <div class="notice">現在：HP ${state.hp} ／ EXP倍率 ×${expMultiplier().hp}</div><div class="editor-actions"><button class="save-quest-btn" data-save-hp>SAVE</button><button class="back-btn" data-settings-back>← OPTIONS</button></div></section>`;
-  document.querySelector("[data-save-hp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.hp.max=Math.max(1,v("hp-max"));state.settings.hp.highThreshold=v("hp-high");state.settings.hp.midThreshold=v("hp-mid");state.settings.hp.highMultiplier=v("hp-m1");state.settings.hp.midMultiplier=v("hp-m2");state.settings.hp.lowMultiplier=v("hp-m3");state.hp=Math.min(state.hp,state.settings.hp.max);saveState();toast("HP SETTINGS SAVED");settingsBack()});
+  document.querySelector("[data-save-hp]").addEventListener("click",()=>{const v=id=>Math.max(0,Number(document.getElementById(id).value)||0);state.settings.hp.max=Math.max(1,v("hp-max"));state.settings.hp.recoveryPerDay=v("hp-recovery");state.settings.hp.highThreshold=v("hp-high");state.settings.hp.midThreshold=v("hp-mid");state.settings.hp.highMultiplier=v("hp-m1");state.settings.hp.midMultiplier=v("hp-m2");state.settings.hp.lowMultiplier=v("hp-m3");state.hp=Math.min(state.hp,state.settings.hp.max);saveState();toast("HP SETTINGS SAVED");settingsBack()});
   document.querySelector("[data-settings-back]").addEventListener("click",settingsBack);
 }
 function renderAttributeSettings(){
