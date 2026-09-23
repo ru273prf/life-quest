@@ -1,5 +1,5 @@
 const STORAGE_KEY = "lifeQuest_v2";
-const APP_VERSION = "V39";
+const APP_VERSION = "V44";
 
 const defaultState = {
   totalExp: 0, hp: 100, level: 1, streak: 0, lastDailyDate: null,
@@ -14,10 +14,10 @@ const defaultState = {
       human:{label:"人間力",icon:"⚔️",description:"生活習慣・健康・娯楽など"}
     },
     itemRewards:[
-      {id:"game30",name:"ゲーム30分券",icon:"🎮",description:"ゲームを30分楽しめる券",enabled:true},
-      {id:"netflix60",name:"Netflix 1時間券",icon:"📺",description:"Netflixを1時間楽しめる券",enabled:true},
-      {id:"free",name:"自由時間1時間券",icon:"☕",description:"好きなことを1時間やる券",enabled:true},
-      {id:"meal",name:"好きなご飯を食べる券",icon:"🍚",description:"好きなご飯を楽しむ券",enabled:true}
+      {id:"game30",name:"ゲーム30分券",icon:"🎮",description:"ゲームを30分楽しめる券",enabled:true,probability:25},
+      {id:"netflix60",name:"Netflix 1時間券",icon:"📺",description:"Netflixを1時間楽しめる券",enabled:true,probability:25},
+      {id:"free",name:"自由時間1時間券",icon:"☕",description:"好きなことを1時間やる券",enabled:true,probability:25},
+      {id:"meal",name:"好きなご飯を食べる券",icon:"🍚",description:"好きなご飯を楽しむ券",enabled:true,probability:25}
     ]
   }
 };
@@ -63,9 +63,9 @@ function ensureSettings(){
   for(const k of ["english","academic","human"]){state.settings.attributes[k]={...defaultState.settings.attributes[k],...(state.settings.attributes[k]||{})}}
   if(!Array.isArray(state.settings.itemRewards)){
     const legacy=Array.isArray(state.settings.shops)?state.settings.shops:defaultShops;
-    state.settings.itemRewards=legacy.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true}));
+    state.settings.itemRewards=legacy.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true,probability:1}));
   }
-  state.settings.itemRewards=state.settings.itemRewards.map(x=>({...x,enabled:x.enabled!==false,description:x.description||"STREAK報酬アイテム"}));
+  state.settings.itemRewards=state.settings.itemRewards.map(x=>({...x,enabled:x.enabled!==false,description:x.description||"STREAK報酬アイテム",probability:Number.isFinite(Number(x.probability))&&Number(x.probability)>=0?Number(x.probability):1}));
 }
 function getItemRewards(){ensureSettings();return state.settings.itemRewards}
 function getAttrConfig(key){ensureSettings();return state.settings.attributes[key]||defaultState.settings.attributes[key]}
@@ -121,7 +121,7 @@ function loadState(){
     const mergedSettings={...clone(defaultState.settings),...(saved.settings||{})};
     // V22以前のSHOP設定をITEM抽選候補へ移行
     if(!saved.settings?.itemRewards && Array.isArray(saved.settings?.shops)){
-      mergedSettings.itemRewards=saved.settings.shops.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true}));
+      mergedSettings.itemRewards=saved.settings.shops.map(x=>({id:x.id,name:x.name,icon:x.icon||"🎁",description:"STREAK報酬アイテム",enabled:true,probability:1}));
     }
     return {
       ...clone(defaultState),
@@ -406,7 +406,11 @@ function updateStreak(){
 function grantRandomItem(){
   const choices=getItemRewards().filter(i=>i.enabled!==false);
   if(!choices.length)return null;
-  const reward=choices[Math.floor(Math.random()*choices.length)];
+  const weights=choices.map(i=>Math.max(0,Number(i.probability)||0));
+  const total=weights.reduce((a,b)=>a+b,0);
+  let reward;
+  if(total<=0){reward=choices[Math.floor(Math.random()*choices.length)];}
+  else{let r=Math.random()*total;for(let n=0;n<choices.length;n++){if(r<weights[n]){reward=choices[n];break}r-=weights[n]}if(!reward)reward=choices[choices.length-1];}
   state.items[reward.id]=Math.max(0,Math.floor(Number(state.items[reward.id])||0))+1;
   return reward;
 }
@@ -482,7 +486,6 @@ function showLevelUp(level){
   overlay.className="levelup-overlay";
   overlay.innerHTML=`<div class="levelup-card">
     <div class="levelup-title">LEVEL UP!</div>
-    <div class="levelup-hero">${heroSprite()}</div>
     <div class="levelup-level">Lv.${level}</div>
     <div class="notice">勇者は一歩強くなった。</div>
     <button class="clear-btn" style="margin-top:16px" data-close-level>CONTINUE</button>
@@ -788,8 +791,9 @@ function renderAttributeSettings(){
 }
 function renderItemSettings(){
   const list=getItemRewards();
-  const rows=list.map(i=>`<div class="item-setting-row"><div><div class="quest-edit-name">${i.icon} ${i.name} ${i.enabled!==false?'':'<span class=\"disabled-badge\">OFF</span>'}</div><div class="quest-meta">${escapeHtml(i.description||"STREAK報酬アイテム")}</div></div><div class="quest-edit-actions"><button class="small-btn" data-toggle-item="${i.id}">${i.enabled!==false?"抽選OFF":"抽選ON"}</button><button class="small-btn" data-edit-item="${i.id}">編集</button><button class="small-btn danger" data-delete-item="${i.id}">削除</button></div></div>`).join("");
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">ITEM SETTINGS</div><div class="notice">STREAKが1増えたときのランダム報酬候補を管理します。抽選確率は候補ごとに均等です。</div><button class="add-quest-btn" data-new-item>＋ NEW ITEM</button><div class="quest-editor-list">${rows||`<div class="notice">アイテム候補がありません。</div>`}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
+  const rows=list.map(i=>`<div class="item-setting-row"><div><div class="quest-edit-name">${i.icon} ${i.name} ${i.enabled!==false?'':'<span class="disabled-badge">OFF</span>'}</div><div class="quest-meta">${escapeHtml(i.description||"STREAK報酬アイテム")} ／ 抽選率 ${Number(i.probability||0)}%</div></div><div class="quest-edit-actions"><button class="small-btn" data-toggle-item="${i.id}">${i.enabled!==false?"抽選OFF":"抽選ON"}</button><button class="small-btn" data-edit-item="${i.id}">編集</button><button class="small-btn danger" data-delete-item="${i.id}">削除</button></div></div>`).join("");
+  const enabledTotal=list.filter(i=>i.enabled!==false).reduce((sum,i)=>sum+Math.max(0,Number(i.probability)||0),0);
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">ITEM SETTINGS</div><div class="notice">STREAKが1増えたときのITEM抽選を設定できます。抽選率は有効なITEM同士で重みとして使います。現在の合計：${enabledTotal}%${enabledTotal!==100?'（100%でなくても自動で正規化されます）':''}</div><button class="add-quest-btn" data-new-item>＋ NEW ITEM</button><div class="quest-editor-list">${rows||`<div class="notice">アイテム候補がありません。</div>`}</div><button class="back-btn" data-settings-back>← OPTIONS</button></section>`;
   document.querySelector("[data-new-item]")?.addEventListener("click",()=>openItemForm());
   document.querySelectorAll("[data-edit-item]").forEach(b=>b.addEventListener("click",()=>openItemForm(b.dataset.editItem)));
   document.querySelectorAll("[data-toggle-item]").forEach(b=>b.addEventListener("click",()=>{const i=list.find(x=>x.id===b.dataset.toggleItem);if(i){i.enabled=i.enabled===false;saveState();renderItemSettings();}}));
@@ -798,8 +802,8 @@ function renderItemSettings(){
 }
 function openItemForm(id=null){
   const q=id?getItemRewards().find(x=>x.id===id):null;
-  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">${q?"EDIT ITEM":"NEW ITEM"}</div><div class="field-grid"><label>アイテム名<input id="item-name" value="${escapeAttr(q?.name||"")}" placeholder="例：ゲーム30分券"></label><label>アイコン<input id="item-icon" value="${escapeAttr(q?.icon||"🎁")}" maxlength="4"></label><label class="wide-field">説明<input id="item-desc" value="${escapeAttr(q?.description||"")}" placeholder="例：ゲームを30分楽しめる券"></label></div><div class="editor-actions"><button class="save-quest-btn" data-save-item>SAVE</button><button class="back-btn" data-back-item>CANCEL</button></div></section>`;
-  document.querySelector("[data-save-item]").addEventListener("click",()=>{const name=document.getElementById("item-name").value.trim();if(!name){toast("アイテム名を入力してね");return}const list=getItemRewards();const item={id:q?.id||makeQuestId(),name,icon:document.getElementById("item-icon").value.trim()||"🎁",description:document.getElementById("item-desc").value.trim()||"STREAK報酬アイテム",enabled:q?q.enabled!==false:true};const idx=list.findIndex(x=>x.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);if(state.items[item.id]===undefined)state.items[item.id]=0;saveState();renderItemSettings();toast(q?"ITEM UPDATED":"ITEM ADDED")});
+  document.getElementById("screen").innerHTML=`<section class="panel"><div class="panel-title">${q?"EDIT ITEM":"NEW ITEM"}</div><div class="field-grid"><label>アイテム名<input id="item-name" value="${escapeAttr(q?.name||"")}" placeholder="例：ゲーム30分券"></label><label>アイコン<input id="item-icon" value="${escapeAttr(q?.icon||"🎁")}" maxlength="4"></label><label class="wide-field">説明<input id="item-desc" value="${escapeAttr(q?.description||"")}" placeholder="例：ゲームを30分楽しめる券"></label><label>抽選率（%）<input id="item-probability" type="number" min="0" max="100" step="0.1" value="${escapeAttr(q?.probability??25)}"></label></div><div class="notice">有効なITEMの抽選率を重みとして使います。合計が100%でなくても、自動で比率に変換して抽選します。</div><div class="editor-actions"><button class="save-quest-btn" data-save-item>SAVE</button><button class="back-btn" data-back-item>CANCEL</button></div></section>`;
+  document.querySelector("[data-save-item]").addEventListener("click",()=>{const name=document.getElementById("item-name").value.trim();if(!name){toast("アイテム名を入力してね");return}const probability=Math.max(0,Math.min(100,Number(document.getElementById("item-probability").value)||0));const list=getItemRewards();const item={id:q?.id||makeQuestId(),name,icon:document.getElementById("item-icon").value.trim()||"🎁",description:document.getElementById("item-desc").value.trim()||"STREAK報酬アイテム",enabled:q?q.enabled!==false:true,probability};const idx=list.findIndex(x=>x.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);if(state.items[item.id]===undefined)state.items[item.id]=0;saveState();renderItemSettings();toast(q?"ITEM UPDATED":"ITEM ADDED")});
   document.querySelector("[data-back-item]").addEventListener("click",renderItemSettings);
 }
 
